@@ -251,7 +251,13 @@ _pkginfo.txt
 *.[Cc]ache
 # but keep track of directories ending in .cache
 !?*.[Cc]ache/
+**/appsettings.Development.json
 
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
 # Others
 ClientBin/
 ~$*

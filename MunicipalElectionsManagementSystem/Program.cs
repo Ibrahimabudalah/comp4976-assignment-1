@@ -43,6 +43,7 @@ builder.Services.ConfigureApplicationCookie(options =>
 });
 
 builder.Services.AddScoped<MunicipalityAuthorizationService>();
+builder.Services.AddScoped<ImageUploadService>();
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("SuperAdminOnly", policy =>

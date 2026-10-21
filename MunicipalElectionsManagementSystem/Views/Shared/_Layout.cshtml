@@ -1,10 +1,18 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 
+@{
+    var currentArea = ViewContext.RouteData.Values["area"] as string;
+    var currentController = ViewContext.RouteData.Values["controller"] as string;
+
+    string Active(string controller, string? area = null) =>
+        currentController == controller && currentArea == area ? "active" : "";
+}
+
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - MunicipalElectionsManagementSystem</title>
+    <title>@ViewData["Title"] - MEMS</title>
     <script type="importmap"></script>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
@@ -13,62 +21,57 @@
 
 <body>
     <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
-            <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Home"
-                   asp-action="Index">MunicipalElectionsManagementSystem</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse"
-                        aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+        <nav class="navbar navbar-expand-md navbar-dark bg-mems box-shadow mb-4">
+            <div class="container">
+                <a class="navbar-brand fw-semibold" asp-area="" asp-controller="Home" asp-action="Index">
+                    MEMS
+                    <span class="d-none d-lg-inline fw-normal small opacity-75">Municipal Elections 2026</span>
+                </a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"
+                        aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
+                <div id="mainNav" class="collapse navbar-collapse">
+                    <ul class="navbar-nav me-auto">
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
+                            <a class="nav-link @Active("Municipalities")" asp-area=""
+                               asp-controller="Municipalities" asp-action="Index">Municipalities</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home"
-                               asp-action="Privacy">Privacy</a>
+                            <a class="nav-link @Active("Candidates")" asp-area=""
+                               asp-controller="Candidates" asp-action="Index">Candidates</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link @Active("VotingGuide")" asp-area=""
+                               asp-controller="VotingGuide" asp-action="Index">My Guide</a>
                         </li>
                         @if (User.Identity?.IsAuthenticated == true)
                         {
                             <li class="nav-item">
-                                <a class="nav-link" asp-area="Admin" asp-controller="Dashboard" asp-action="Index">
-                                    Dashboard
-                                </a>
+                                <a class="nav-link @(currentArea == "Admin" ? "active" : "")"
+                                   asp-area="Admin" asp-controller="Dashboard" asp-action="Index">Dashboard</a>
                             </li>
                         }
                     </ul>
-                    <ul class="navbar-nav ms-auto">
-
+                    <ul class="navbar-nav align-items-md-center">
                         @if (User.Identity?.IsAuthenticated == true)
                         {
                             <li class="nav-item">
-                                <span class="nav-link">
-                                    @User.Identity.Name
-                                </span>
+                                <span class="navbar-text me-md-3">@User.Identity.Name</span>
                             </li>
-
                             <li class="nav-item">
                                 <form asp-area="" asp-controller="Account" asp-action="Logout" method="post">
-
-                                    @Html.AntiForgeryToken()
-
-                                    <button type="submit" class="btn btn-outline-danger btn-sm">
-                                        Logout
-                                    </button>
+                                    <button type="submit" class="btn btn-outline-light btn-sm">Logout</button>
                                 </form>
                             </li>
                         }
                         else
                         {
                             <li class="nav-item">
-                                <a class="nav-link" asp-area="" asp-controller="Account" asp-action="Login">
-                                    Admin Login
-                                </a>
+                                <a class="nav-link @Active("Account")" asp-area=""
+                                   asp-controller="Account" asp-action="Login">Admin Login</a>
                             </li>
                         }
-
                     </ul>
                 </div>
             </div>
@@ -82,8 +85,7 @@
 
     <footer class="border-top footer text-muted">
         <div class="container">
-            &copy; 2026 - MunicipalElectionsManagementSystem - <a asp-area="" asp-controller="Home"
-                                                                  asp-action="Privacy">Privacy</a>
+            &copy; 2026 - Municipal Elections Management System
         </div>
     </footer>
     <script src="~/lib/jquery/dist/jquery.min.js"></script>

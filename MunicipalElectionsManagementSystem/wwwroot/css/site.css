@@ -30,6 +30,47 @@ body {
   text-align: start;
 }
 
+/* Colour scheme */
+:root {
+  --mems-navy: #1f3a5f;
+  --mems-navy-dark: #162a45;
+}
+
+.bg-mems {
+  background-color: var(--mems-navy);
+}
+
+.btn-primary {
+  --bs-btn-bg: var(--mems-navy);
+  --bs-btn-border-color: var(--mems-navy);
+  --bs-btn-hover-bg: var(--mems-navy-dark);
+  --bs-btn-hover-border-color: var(--mems-navy-dark);
+  --bs-btn-active-bg: var(--mems-navy-dark);
+  --bs-btn-active-border-color: var(--mems-navy-dark);
+}
+
+.btn-outline-primary {
+  --bs-btn-color: var(--mems-navy);
+  --bs-btn-border-color: var(--mems-navy);
+  --bs-btn-hover-bg: var(--mems-navy);
+  --bs-btn-hover-border-color: var(--mems-navy);
+  --bs-btn-active-bg: var(--mems-navy-dark);
+  --bs-btn-active-border-color: var(--mems-navy-dark);
+}
+
+.navbar-dark .nav-link.active {
+  font-weight: 600;
+  border-bottom: 2px solid #fff;
+}
+
+.card {
+  transition: box-shadow 0.15s ease-in-out;
+}
+
+.card:hover {
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.12) !important;
+}
+
 /* Printable voting guide */
 .print-only {
   display: none;

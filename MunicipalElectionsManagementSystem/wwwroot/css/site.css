@@ -29,3 +29,26 @@ body {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
   text-align: start;
 }
+
+/* Printable voting guide */
+.print-only {
+  display: none;
+}
+
+@media print {
+  header, footer, .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block;
+  }
+
+  body {
+    margin-bottom: 0;
+  }
+
+  .guide-section {
+    break-inside: avoid;
+  }
+}

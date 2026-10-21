@@ -4,6 +4,8 @@
     ViewData["Title"] = Model.Name;
 }
 
+<partial name="_StatusMessages" />
+
 <div class="row g-4">
     <div class="col-md-4">
         <img src="@Url.Content(string.IsNullOrEmpty(Model.PhotoFileName)
@@ -38,6 +40,12 @@
                 }
             </ul>
         }
+
+        <form asp-controller="VotingGuide" asp-action="Add" method="post" class="mb-3">
+            <input type="hidden" name="id" value="@Model.CandidateId" />
+            <input type="hidden" name="returnUrl" value="@Context.Request.Path" />
+            <button type="submit" class="btn btn-success">Add to my guide</button>
+        </form>
 
         <a asp-action="Index" class="btn btn-link px-0">&larr; All candidates</a>
     </div>

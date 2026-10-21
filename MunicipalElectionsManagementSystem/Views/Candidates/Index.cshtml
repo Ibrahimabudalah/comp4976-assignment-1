@@ -6,6 +6,8 @@
 
 <h2 class="mb-4">Candidates</h2>
 
+<partial name="_StatusMessages" />
+
 <form asp-action="Index" method="get" class="row g-2 mb-4">
     <div class="col-12 col-md-4">
         <label for="search" class="visually-hidden">Search by name</label>
@@ -53,11 +55,16 @@
                         @candidate.Position.Name &middot; @candidate.Position.Municipality.Name
                     </p>
                 </div>
-                <div class="card-footer bg-transparent border-0 pb-3">
+                <div class="card-footer bg-transparent border-0 pb-3 d-flex gap-2">
                     <a asp-action="Details" asp-route-id="@candidate.CandidateId"
                        class="btn btn-outline-primary btn-sm">
                         View profile
                     </a>
+                    <form asp-controller="VotingGuide" asp-action="Add" method="post">
+                        <input type="hidden" name="id" value="@candidate.CandidateId" />
+                        <input type="hidden" name="returnUrl" value="@(Context.Request.Path + Context.Request.QueryString)" />
+                        <button type="submit" class="btn btn-success btn-sm">Add to my guide</button>
+                    </form>
                 </div>
             </div>
         </div>

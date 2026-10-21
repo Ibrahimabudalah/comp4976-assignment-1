@@ -5,6 +5,9 @@
 
 **/appsettings.Development.json
 
+# Local reference material
+ref/
+
 # SQLite databases
 *.db
 *.db-shm

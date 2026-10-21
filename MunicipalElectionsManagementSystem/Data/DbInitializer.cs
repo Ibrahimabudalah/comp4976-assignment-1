@@ -18,111 +18,11 @@ public static class DbInitializer
         //apply pending EF Core migrations
         await db.Database.MigrateAsync();
 
-        //seed municipalities
+        //seed sample domain data only into an empty database,
+        //so rows an admin deletes do not come back on restart
         if (!await db.Municipalities.AnyAsync())
         {
-            db.Municipalities.AddRange(
-                new Municipality
-                {
-                    Name = "Pitt Meadows",
-                    Province = "British Columbia",
-                    ElectionDate = new DateTime(2026, 10, 17),
-                    Description = "Municipal elections for Pitt Meadows."
-                },
-                new Municipality
-                {
-                    Name = "Maple Ridge",
-                    Province = "British Columbia",
-                    ElectionDate = new DateTime(2026, 10, 17),
-                    Description = "Municipal elections for Maple Ridge."
-                }
-            );
-
-            await db.SaveChangesAsync();
-        }
-
-        var pittMeadows = await db.Municipalities
-            .FirstAsync(m => m.Name == "Pitt Meadows");
-
-        var mapleRidge = await db.Municipalities
-            .FirstAsync(m => m.Name == "Maple Ridge");
-
-        //seed positions
-        if (!await db.Positions.AnyAsync())
-        {
-            db.Positions.AddRange(
-                new Position
-                {
-                    Name = "Mayor",
-                    SeatsAvailable = 1,
-                    MunicipalityId = pittMeadows.MunicipalityId
-                },
-                new Position
-                {
-                    Name = "Councilor",
-                    SeatsAvailable = 6,
-                    MunicipalityId = pittMeadows.MunicipalityId
-                },
-                new Position
-                {
-                    Name = "School Trustee",
-                    SeatsAvailable = 2,
-                    MunicipalityId = pittMeadows.MunicipalityId
-                },
-                new Position
-                {
-                    Name = "Mayor",
-                    SeatsAvailable = 1,
-                    MunicipalityId = mapleRidge.MunicipalityId
-                },
-                new Position
-                {
-                    Name = "Councilor",
-                    SeatsAvailable = 6,
-                    MunicipalityId = mapleRidge.MunicipalityId
-                }
-            );
-
-            await db.SaveChangesAsync();
-        }
-
-        //seed sample candidates
-        if (!await db.Candidates.AnyAsync())
-        {
-            var pittMayor = await db.Positions.FirstAsync(
-                p => p.Name == "Mayor" &&
-                     p.MunicipalityId == pittMeadows.MunicipalityId);
-
-            var pittCouncil = await db.Positions.FirstAsync(
-                p => p.Name == "Councilor" &&
-                     p.MunicipalityId == pittMeadows.MunicipalityId);
-
-            var mapleMayor = await db.Positions.FirstAsync(
-                p => p.Name == "Mayor" &&
-                     p.MunicipalityId == mapleRidge.MunicipalityId);
-
-            db.Candidates.AddRange(
-                new Candidate
-                {
-                    Name = "Alex Morgan",
-                    Profile = "Focused on community development and local services.",
-                    PositionId = pittMayor.PositionId
-                },
-                new Candidate
-                {
-                    Name = "Jordan Lee",
-                    Profile = "Interested in transportation and affordable housing.",
-                    PositionId = pittCouncil.PositionId
-                },
-                new Candidate
-                {
-                    Name = "Taylor Chen",
-                    Profile = "Supports local businesses and community programs.",
-                    PositionId = mapleMayor.PositionId
-                }
-            );
-
-            await db.SaveChangesAsync();
+            await SeedDomainDataAsync(db);
         }
 
         //create required roles
@@ -139,6 +39,9 @@ public static class DbInitializer
             }
         }
 
+        var pittMeadows = await db.Municipalities
+            .FirstOrDefaultAsync(m => m.Name == "Pitt Meadows");
+
         //seed users
         await CreateUserAsync(
             userManager,
@@ -151,8 +54,82 @@ public static class DbInitializer
             userManager,
             "pm",
             "Pitt Meadows Admin",
-            pittMeadows.MunicipalityId,
+            pittMeadows?.MunicipalityId,
             configuration["SeedUsers:PmPassword"]);
+    }
+
+    private static async Task SeedDomainDataAsync(ApplicationDbContext db)
+    {
+        var pittMeadows = NewMunicipality("Pitt Meadows");
+        var mapleRidge = NewMunicipality("Maple Ridge");
+        var burnaby = NewMunicipality("Burnaby");
+
+        //seed positions
+        var pittMayor = NewPosition(pittMeadows, "Mayor", 1);
+        var pittCouncil = NewPosition(pittMeadows, "Councilor", 6);
+        var pittTrustee = NewPosition(pittMeadows, "School Trustee", 2);
+
+        var mapleMayor = NewPosition(mapleRidge, "Mayor", 1);
+        var mapleCouncil = NewPosition(mapleRidge, "Councilor", 6);
+        var mapleTrustee = NewPosition(mapleRidge, "School Trustee", 5);
+
+        var burnabyMayor = NewPosition(burnaby, "Mayor", 1);
+        var burnabyCouncil = NewPosition(burnaby, "Councilor", 8);
+        var burnabyTrustee = NewPosition(burnaby, "School Trustee", 7);
+
+        //seed sample candidates
+        (string Name, string Profile, Position Position)[] candidates =
+        {
+            ("Alex Morgan", "Focused on community development and local services.", pittMayor),
+            ("Jordan Lee", "Interested in transportation and affordable housing.", pittCouncil),
+            ("Priya Sandhu", "Small business owner advocating for a vibrant downtown core.", pittCouncil),
+            ("Daniel Okafor", "Former teacher committed to smaller class sizes and school safety.", pittTrustee),
+            ("Taylor Chen", "Supports local businesses and community programs.", mapleMayor),
+            ("Maria Gonzalez", "Wants better transit links and safer cycling routes.", mapleCouncil),
+            ("Liam O'Brien", "Volunteer firefighter focused on emergency preparedness.", mapleCouncil),
+            ("Hannah Kim", "Parent advocate for inclusive education and arts programs.", mapleTrustee),
+            ("Samuel Wright", "Focused on housing supply and responsible budgeting.", burnabyMayor),
+            ("Aisha Rahman", "Environmental scientist championing parks and climate action.", burnabyCouncil),
+            ("Kevin Tran", "Tech worker pushing for digital city services.", burnabyCouncil),
+            ("Emily Fraser", "Community organizer supporting seniors and youth programs.", burnabyCouncil),
+            ("Robert Singh", "Retired principal focused on school capital projects.", burnabyTrustee),
+            ("Grace Liu", "Advocates for mental health supports in schools.", burnabyTrustee)
+        };
+
+        foreach (var (name, profile, position) in candidates)
+        {
+            position.Candidates.Add(new Candidate
+            {
+                Name = name,
+                Profile = profile
+            });
+        }
+
+        db.Municipalities.AddRange(pittMeadows, mapleRidge, burnaby);
+        await db.SaveChangesAsync();
+    }
+
+    private static Municipality NewMunicipality(string name) => new()
+    {
+        Name = name,
+        Province = "British Columbia",
+        ElectionDate = new DateTime(2026, 10, 17),
+        Description = $"Municipal elections for {name}."
+    };
+
+    private static Position NewPosition(
+        Municipality municipality,
+        string name,
+        int seats)
+    {
+        var position = new Position
+        {
+            Name = name,
+            SeatsAvailable = seats
+        };
+
+        municipality.Positions.Add(position);
+        return position;
     }
 
     private static async Task CreateUserAsync(

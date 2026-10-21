@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using MunicipalElectionsManagementSystem.Data;
 using MunicipalElectionsManagementSystem.Models;
 using MunicipalElectionsManagementSystem.Services;
@@ -13,6 +15,15 @@ var connectionString = builder.Configuration
     .GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException(
         "Database connection string was not found.");
+
+//SQLite will not create missing folders, e.g. /home/data on Azure
+var databaseFolder = Path.GetDirectoryName(Path.GetFullPath(
+    new SqliteConnectionStringBuilder(connectionString).DataSource));
+
+if (!string.IsNullOrEmpty(databaseFolder))
+{
+    Directory.CreateDirectory(databaseFolder);
+}
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite(connectionString));
@@ -70,6 +81,21 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
+
+//serve uploaded images from Uploads:Path when it is outside wwwroot
+var uploadRoot = ImageUploadService.GetUploadRoot(
+    app.Environment, app.Configuration);
+
+if (app.Configuration["Uploads:Path"] != null)
+{
+    Directory.CreateDirectory(uploadRoot);
+
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new PhysicalFileProvider(uploadRoot),
+        RequestPath = "/uploads"
+    });
+}
 
 app.UseRouting();
 app.UseSession();

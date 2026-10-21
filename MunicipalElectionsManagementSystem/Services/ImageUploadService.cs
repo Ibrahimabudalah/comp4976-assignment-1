@@ -6,16 +6,30 @@ namespace MunicipalElectionsManagementSystem.Services;
 
 public class ImageUploadService
 {
-    private readonly IWebHostEnvironment _environment;
+    private readonly string _uploadRoot;
 
     private static readonly string[] AllowedExtensions =
     {
         ".jpg", ".jpeg", ".png", ".webp"
     };
 
-    public ImageUploadService(IWebHostEnvironment environment)
+    public ImageUploadService(
+        IWebHostEnvironment environment,
+        IConfiguration configuration)
     {
-        _environment = environment;
+        _uploadRoot = GetUploadRoot(environment, configuration);
+    }
+
+    //Uploads:Path moves images outside wwwroot so they survive redeploys on Azure
+    public static string GetUploadRoot(
+        IWebHostEnvironment environment,
+        IConfiguration configuration)
+    {
+        var webRoot = environment.WebRootPath
+            ?? Path.Combine(environment.ContentRootPath, "wwwroot");
+
+        return configuration["Uploads:Path"]
+            ?? Path.Combine(webRoot, "uploads");
     }
 
     public async Task<string?> SaveImageAsync(
@@ -42,11 +56,7 @@ public class ImageUploadService
                 "Only JPG, PNG, and WebP images are allowed.");
         }
 
-        var root = _environment.WebRootPath
-            ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
-
-        var uploadDirectory = Path.Combine(
-            root, "uploads", folder);
+        var uploadDirectory = Path.Combine(_uploadRoot, folder);
 
         Directory.CreateDirectory(uploadDirectory);
 
@@ -68,13 +78,10 @@ public class ImageUploadService
             return;
         }
 
-        var root = _environment.WebRootPath
-            ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
-
         var safeFileName = Path.GetFileName(fileName);
 
         var filePath = Path.Combine(
-            root, "uploads", folder, safeFileName);
+            _uploadRoot, folder, safeFileName);
 
         if (File.Exists(filePath))
         {

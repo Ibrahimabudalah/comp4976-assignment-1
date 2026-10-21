@@ -58,6 +58,17 @@ body {
   --bs-btn-active-border-color: var(--mems-navy-dark);
 }
 
+/* Dark mode: navy is too dark against a dark page, use a lighter blue for outlines */
+[data-bs-theme="dark"] .btn-outline-primary {
+  --bs-btn-color: #8fb3e0;
+  --bs-btn-border-color: #8fb3e0;
+  --bs-btn-hover-color: #fff;
+}
+
+[data-bs-theme="dark"] .bg-mems {
+  background-color: var(--mems-navy-dark);
+}
+
 .navbar-dark .nav-link.active {
   font-weight: 600;
   border-bottom: 2px solid #fff;

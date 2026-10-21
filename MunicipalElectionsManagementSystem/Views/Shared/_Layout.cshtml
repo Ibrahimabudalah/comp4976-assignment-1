@@ -13,6 +13,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - MEMS</title>
+    <script>
+        //apply the saved theme before the page paints to avoid a flash
+        document.documentElement.setAttribute("data-bs-theme",
+            localStorage.getItem("theme") ??
+            (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
+    </script>
     <script type="importmap"></script>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
@@ -54,6 +60,10 @@
                         }
                     </ul>
                     <ul class="navbar-nav align-items-md-center">
+                        <li class="nav-item me-md-3 mb-2 mb-md-0">
+                            <button type="button" id="theme-toggle" class="btn btn-outline-light btn-sm"
+                                    aria-label="Toggle dark mode">Dark mode</button>
+                        </li>
                         @if (User.Identity?.IsAuthenticated == true)
                         {
                             <li class="nav-item">

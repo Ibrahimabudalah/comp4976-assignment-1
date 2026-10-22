@@ -35,6 +35,7 @@ Ibrahim Abdulah
   positions, and candidates.
 - Image upload service and municipality-scoped
   authorization for admin users.
+- Deployed project to Azure (check link below)
 
 Steven Doan
 - Configuration fixes: connection string and seed
@@ -76,9 +77,7 @@ Steven Doan
 
 ##INCOMPLETE FEATURES
 
-- Azure deployment: the application is configured for
-  Azure App Service, but the team did not have
-  permission to deploy it at the time of submission.
+- N/A
 
 
 ##MAJOR CHALLENGES
@@ -163,13 +162,14 @@ Steven Doan
 
 ##AZURE DEPLOYMENT URL
 
-Not deployed. See INCOMPLETE FEATURES.
+https://comp4976-elections-f0hge0avgmeta5f0.canadacentral-01.azurewebsites.net/
 
 Required App Service settings when deployed:
 ConnectionStrings__DefaultConnection = Data Source=/home/data/mems.db
 Uploads__Path = /home/uploads
 SeedUsers__SuperPassword = P@$$w0rd
 SeedUsers__PmPassword = P@$$w0rd
+WEBSITES_ENABLE_APP_SERVICE_STORAGE = true
 
 
 ##GITHUB REPOSITORY

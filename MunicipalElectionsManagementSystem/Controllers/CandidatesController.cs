@@ -80,4 +80,30 @@ public class CandidatesController : Controller
 
         return View(candidate);
     }
+
+    public async Task<IActionResult> Compare(int[] ids)
+    {
+        ids = ids.Distinct().ToArray();
+
+        if (ids.Length < 2 || ids.Length > 3)
+        {
+            TempData["ErrorMessage"] = "Select 2 or 3 candidates to compare.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var candidates = await _context.Candidates
+            .AsNoTracking()
+            .Include(c => c.Position)
+                .ThenInclude(p => p.Municipality)
+            .Where(c => ids.Contains(c.CandidateId))
+            .ToListAsync();
+
+        if (candidates.Count != ids.Length)
+        {
+            return NotFound();
+        }
+
+        //SQL IN does not keep order, so match the order of the ids in the URL
+        return View(ids.Select(id => candidates.First(c => c.CandidateId == id)).ToList());
+    }
 }

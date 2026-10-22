@@ -38,6 +38,14 @@
 {
     <p class="text-muted">No candidates match your search.</p>
 }
+else
+{
+    <form id="compare-form" asp-action="Compare" method="get"
+          class="d-flex flex-wrap align-items-center gap-2 mb-3">
+        <button type="submit" class="btn btn-outline-primary">Compare selected</button>
+        <span class="text-muted small">Tick 2 or 3 candidates to compare them side by side.</span>
+    </form>
+}
 
 <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-4">
     @foreach (var candidate in Model)
@@ -54,6 +62,11 @@
                     <p class="card-text text-muted">
                         @candidate.Position.Name &middot; @candidate.Position.Municipality.Name
                     </p>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" form="compare-form"
+                               name="ids" value="@candidate.CandidateId" id="compare-@candidate.CandidateId" />
+                        <label class="form-check-label" for="compare-@candidate.CandidateId">Compare</label>
+                    </div>
                 </div>
                 <div class="card-footer bg-transparent border-0 pb-3 d-flex gap-2">
                     <a asp-action="Details" asp-route-id="@candidate.CandidateId"

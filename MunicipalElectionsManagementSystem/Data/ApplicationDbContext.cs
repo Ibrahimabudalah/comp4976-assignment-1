@@ -22,9 +22,6 @@ public class ApplicationDbContext
     public DbSet<Candidate> Candidates { get; set; }
         = null!;
 
-    public DbSet<SavedCandidate> SavedCandidates { get; set; }
-        = null!;
-
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -49,24 +46,5 @@ public class ApplicationDbContext
             .WithMany()
             .HasForeignKey(u => u.MunicipalityId)
             .OnDelete(DeleteBehavior.Restrict);
-
-        //saved entries go away with their user or candidate,
-        //so admins can still delete candidates that users saved
-        builder.Entity<SavedCandidate>()
-            .HasOne(s => s.User)
-            .WithMany()
-            .HasForeignKey(s => s.UserId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        builder.Entity<SavedCandidate>()
-            .HasOne(s => s.Candidate)
-            .WithMany()
-            .HasForeignKey(s => s.CandidateId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        //a user can save each candidate only once
-        builder.Entity<SavedCandidate>()
-            .HasIndex(s => new { s.UserId, s.CandidateId })
-            .IsUnique();
     }
 }

@@ -301,9 +301,9 @@ public class UsersController : Controller
 
     private async Task LoadMunicipalitiesAsync(int? selectedId)
     {
-        ViewBag.Municipalities = new SelectList(
-            await _context.Municipalities.OrderBy(m => m.Name).ToListAsync(),
-            "MunicipalityId", "Name", selectedId);
+        var municipalities = await _context.Municipalities.OrderBy(m => m.Name).ToListAsync();
+        ViewBag.Municipalities = municipalities.Select(m => new SelectListItem(
+            AdminRoles.ForMunicipality(m.Name), m.MunicipalityId.ToString(), m.MunicipalityId == selectedId)).ToList();
     }
 
     private void AddErrors(IdentityResult result)

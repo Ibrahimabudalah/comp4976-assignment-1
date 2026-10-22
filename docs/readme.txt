@@ -11,17 +11,19 @@ for managing municipal elections.
 
 Administrators log in to manage municipalities,
 positions, and candidates. Super Admin users manage
-every municipality. Municipality admin users manage
-only the municipality assigned to them.
+every municipality and every administrator account.
+Municipality admin users manage only the municipality
+assigned to them.
 
 Public users can browse municipalities and positions,
 search candidates by name, filter by municipality and
-position, view candidate profiles, and build a
-printable voting guide without logging in.
+position, view candidate profiles, compare candidates
+side by side, and build a voting guide they can print
+or download as a PDF, all without logging in.
 
 Technologies: ASP.NET Core MVC, Entity Framework Core
 Code First, SQLite, ASP.NET Core Identity, Bootstrap,
-Azure App Service.
+QuestPDF, Azure App Service.
 
 
 ##STUDENT CONTRIBUTIONS
@@ -43,6 +45,33 @@ Steven Doan
 - Navigation, colour scheme, and responsive layout.
 - Azure deployment configuration (persistent database
   and upload folders).
+- Expanded seed data.
+- Bonus features: dark mode, QuestPDF voting guide
+  export, administrator and admin group management,
+  candidate comparison, and mobile-first layout.
+
+
+##BONUS FEATURES
+
+1. Dark mode: a navbar toggle on public and admin
+   pages. It follows the device theme by default,
+   remembers the choice, and prints in light mode.
+2. QuestPDF export: "Download PDF" on My Guide creates
+   a PDF of the voting guide on the server, grouped by
+   municipality, with candidate photos.
+3. User / Role Management: Super Admin can add, edit,
+   and delete administrators, reset passwords, and
+   assign each one to Super Admin or a municipality
+   admin group. Every municipality gets its own
+   "{Name} Admin" group, which is created, renamed, and
+   deleted together with the municipality.
+4. Candidate comparison: tick 2 or 3 candidates on the
+   Candidates page and press "Compare selected" to see
+   them side by side.
+5. Mobile-first enhancements: tables turn into
+   labelled cards on phones, buttons are at least 44px
+   tall on phones, and the navbar collapses on tablets.
+   Tested at common phone widths from 320px to 932px.
 
 
 ##INCOMPLETE FEATURES
@@ -50,11 +79,6 @@ Steven Doan
 - Azure deployment: the application is configured for
   Azure App Service, but the team did not have
   permission to deploy it at the time of submission.
-- Municipality admin groups: only the "Pitt Meadows
-  Admin" group exists. The role name is fixed in code,
-  so a new municipality does not get its own admin
-  group automatically.
-- No bonus features were implemented.
 
 
 ##MAJOR CHALLENGES
@@ -70,6 +94,11 @@ Steven Doan
 - Planning storage for Azure. App Service replaces
   wwwroot on each deploy, so the database and uploaded
   images are configured to live under /home instead.
+- Keeping admin groups in sync with municipalities.
+  Identity compares role names without case, so
+  municipality names must be unique regardless of case,
+  and renaming a municipality renames its group so its
+  admins keep access.
 
 
 ##TESTING INSTRUCTIONS
@@ -96,8 +125,10 @@ Steven Doan
    dotnet run
 
    The database is created, migrated, and seeded on
-   first start. Seed data: Pitt Meadows and Maple Ridge,
-   5 positions, and 3 candidates.
+   first start. Seed data: Pitt Meadows, Maple Ridge,
+   and Burnaby, 9 positions, and 14 candidates. Admin
+   groups: Super Admin, Pitt Meadows Admin, Maple Ridge
+   Admin, and Burnaby Admin.
 
 4. Seeded admin users:
 
@@ -108,13 +139,23 @@ Steven Doan
 5. Suggested checks:
    - As a visitor, browse Municipalities and
      Candidates, search and filter, open a profile,
-     add candidates to My Guide, and print the guide.
+     add candidates to My Guide, print the guide, and
+     press "Download PDF".
+   - On Candidates, tick 2 or 3 candidates and press
+     "Compare selected".
+   - Use the navbar toggle to switch dark mode on and
+     off.
    - Log in as super: manage all municipalities,
      positions, and candidates, including logo and
      photo uploads (JPG, PNG, or WebP, 2 MB maximum).
+   - As super, open Dashboard > Manage Administrators,
+     add an admin for Maple Ridge, log in as that user,
+     and confirm only Maple Ridge data can be changed.
    - Log in as pm: only Pitt Meadows positions and
-     candidates are visible, and municipalities cannot
-     be created.
+     candidates are visible, and municipalities and
+     administrators cannot be managed.
+   - Resize the browser to phone width: admin tables
+     become cards and nothing scrolls sideways.
 
 6. To reset the data, stop the app, delete mems.db,
    and run it again.

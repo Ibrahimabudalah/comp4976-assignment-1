@@ -6,7 +6,7 @@
 }
 
 <div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-4">
         <h2>Manage Positions</h2>
 
         <a asp-area="Admin" asp-controller="Positions" asp-action="Create" class="btn btn-primary">
@@ -28,7 +28,7 @@
         </div>
     }
 
-    <table class="table table-striped">
+    <table class="table table-striped align-middle table-stack">
         <thead>
             <tr>
                 <th>Position</th>
@@ -41,10 +41,10 @@
             @foreach (var position in Model)
             {
                 <tr>
-                    <td>@position.Name</td>
-                    <td>@position.Municipality?.Name</td>
-                    <td>@position.SeatsAvailable</td>
-                    <td>
+                    <td data-label="Position">@position.Name</td>
+                    <td data-label="Municipality">@position.Municipality?.Name</td>
+                    <td data-label="Seats Available">@position.SeatsAvailable</td>
+                    <td class="actions">
                         <a asp-action="Details" asp-route-id="@position.PositionId" class="btn btn-sm btn-outline-info">
                             Details
                         </a>

@@ -82,6 +82,58 @@ body {
   box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.12) !important;
 }
 
+/* Phones: 44px touch targets, text centred in the taller button */
+@media (max-width: 767.98px) {
+  .btn,
+  .navbar-toggler {
+    min-height: 44px;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* Phones: show each table row as a labelled card instead of scrolling sideways */
+@media (max-width: 575.98px) {
+  .table-stack thead {
+    display: none;
+  }
+
+  .table-stack tr {
+    display: block;
+    margin-bottom: 0.75rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius);
+  }
+
+  .table-stack td {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    text-align: end;
+    border: 0;
+  }
+
+  .table-stack td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    text-align: start;
+  }
+
+  .table-stack td.actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .table-stack td.actions::before {
+    content: none;
+  }
+}
+
 /* Printable voting guide */
 .print-only {
   display: none;

@@ -6,7 +6,7 @@
 }
 
 <div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-4">
         <h2>Manage Candidates</h2>
 
         <a asp-area="Admin" asp-controller="Candidates" asp-action="Create" class="btn btn-primary">
@@ -29,7 +29,7 @@
     }
 
     <div class="table-responsive">
-        <table class="table table-striped align-middle">
+        <table class="table table-striped align-middle table-stack">
             <thead>
                 <tr>
                     <th>Photo</th>
@@ -43,7 +43,7 @@
                 @foreach (var candidate in Model)
                 {
                     <tr>
-                        <td>
+                        <td data-label="Photo">
                             @if (!string.IsNullOrEmpty(candidate.PhotoFileName))
                             {
                                 <img src="@Url.Content("~/uploads/candidates/" + candidate.PhotoFileName)" alt="@candidate.Name"
@@ -54,10 +54,10 @@
                                 <span class="text-muted">No photo</span>
                             }
                         </td>
-                        <td>@candidate.Name</td>
-                        <td>@candidate.Position?.Name</td>
-                        <td>@candidate.Position?.Municipality?.Name</td>
-                        <td>
+                        <td data-label="Name">@candidate.Name</td>
+                        <td data-label="Position">@candidate.Position?.Name</td>
+                        <td data-label="Municipality">@candidate.Position?.Municipality?.Name</td>
+                        <td class="actions">
                             <a asp-action="Details" asp-route-id="@candidate.CandidateId"
                                class="btn btn-sm btn-outline-info">
                                 Details

@@ -9,7 +9,7 @@
 <partial name="_StatusMessages" />
 
 <form asp-action="Index" method="get" class="row g-2 mb-4">
-    <div class="col-12 col-md-4">
+    <div class="col-12 col-md-6 col-lg-4">
         <label for="search" class="visually-hidden">Search by name</label>
         <input id="search" name="search" value="@ViewData["Search"]"
                class="form-control" placeholder="Search by name" />
@@ -28,7 +28,7 @@
             <option value="">All positions</option>
         </select>
     </div>
-    <div class="col-12 col-md-2 d-flex gap-2">
+    <div class="col-12 col-lg-2 d-flex gap-2">
         <button type="submit" class="btn btn-primary flex-grow-1">Search</button>
         <a asp-action="Index" class="btn btn-outline-secondary">Clear</a>
     </div>
@@ -62,13 +62,11 @@ else
                     <p class="card-text text-muted">
                         @candidate.Position.Name &middot; @candidate.Position.Municipality.Name
                     </p>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" form="compare-form"
-                               name="ids" value="@candidate.CandidateId" id="compare-@candidate.CandidateId" />
-                        <label class="form-check-label" for="compare-@candidate.CandidateId">Compare</label>
-                    </div>
+                    <input class="btn-check" type="checkbox" form="compare-form" autocomplete="off"
+                           name="ids" value="@candidate.CandidateId" id="compare-@candidate.CandidateId" />
+                    <label class="btn btn-outline-secondary btn-sm" for="compare-@candidate.CandidateId">Compare</label>
                 </div>
-                <div class="card-footer bg-transparent border-0 pb-3 d-flex gap-2">
+                <div class="card-footer bg-transparent border-0 pb-3 d-flex flex-wrap gap-2">
                     <a asp-action="Details" asp-route-id="@candidate.CandidateId"
                        class="btn btn-outline-primary btn-sm">
                         View profile

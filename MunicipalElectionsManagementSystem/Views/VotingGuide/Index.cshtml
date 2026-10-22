@@ -4,7 +4,7 @@
     ViewData["Title"] = "My Voting Guide";
 }
 
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
     <h2 class="mb-0">My Voting Guide</h2>
     @if (Model.Any())
     {
@@ -42,7 +42,7 @@
         <p class="text-muted">Election date: @municipality.Info.ElectionDate.ToString("MMMM d, yyyy")</p>
 
         <div class="table-responsive">
-            <table class="table align-middle">
+            <table class="table align-middle table-stack">
                 <thead>
                     <tr>
                         <th style="width: 80px;">Photo</th>
@@ -57,16 +57,16 @@
                         .ThenBy(c => c.Name))
                     {
                         <tr>
-                            <td>
+                            <td data-label="Photo">
                                 <img src="@Url.Content(string.IsNullOrEmpty(candidate.PhotoFileName)
                                               ? "~/images/placeholder.svg"
                                               : "~/uploads/candidates/" + candidate.PhotoFileName)"
                                      alt="@candidate.Name" width="60" height="60"
                                      class="rounded" style="object-fit: cover;" />
                             </td>
-                            <td>@candidate.Name</td>
-                            <td>@candidate.Position.Name</td>
-                            <td class="text-end no-print">
+                            <td data-label="Candidate">@candidate.Name</td>
+                            <td data-label="Position">@candidate.Position.Name</td>
+                            <td class="text-end no-print actions">
                                 <form asp-action="Remove" asp-route-id="@candidate.CandidateId" method="post">
                                     <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
                                 </form>

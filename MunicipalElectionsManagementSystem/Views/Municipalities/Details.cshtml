@@ -27,7 +27,7 @@
 else
 {
     <div class="table-responsive">
-        <table class="table align-middle">
+        <table class="table align-middle table-stack">
             <thead>
                 <tr>
                     <th>Position</th>
@@ -40,10 +40,10 @@ else
                 @foreach (var position in Model.Positions.OrderBy(p => p.Name))
                 {
                     <tr>
-                        <td>@position.Name</td>
-                        <td>@position.SeatsAvailable</td>
-                        <td>@position.Candidates.Count</td>
-                        <td class="text-end">
+                        <td data-label="Position">@position.Name</td>
+                        <td data-label="Seats available">@position.SeatsAvailable</td>
+                        <td data-label="Candidates">@position.Candidates.Count</td>
+                        <td class="text-end actions">
                             <a asp-controller="Candidates" asp-action="Index"
                                asp-route-municipalityId="@Model.MunicipalityId"
                                asp-route-position="@position.Name"

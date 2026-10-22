@@ -64,6 +64,10 @@ builder.Services.AddSession(options =>
 
 builder.Services.AddScoped<MunicipalityAuthorizationService>();
 builder.Services.AddScoped<ImageUploadService>();
+builder.Services.AddScoped<VotingGuidePdfService>();
+
+//QuestPDF Community license: free for learning and small organisations
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("SuperAdminOnly", policy =>

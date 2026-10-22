@@ -8,9 +8,12 @@
     <h2 class="mb-0">My Voting Guide</h2>
     @if (Model.Any())
     {
-        <button type="button" class="btn btn-primary no-print" onclick="window.print()">
-            Print guide
-        </button>
+        <div class="d-flex gap-2 no-print">
+            <a asp-action="Pdf" class="btn btn-outline-primary">Download PDF</a>
+            <button type="button" class="btn btn-primary" onclick="window.print()">
+                Print guide
+            </button>
+        </div>
     }
 </div>
 

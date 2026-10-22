@@ -2,6 +2,8 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MunicipalElectionsManagementSystem.Data;
+using MunicipalElectionsManagementSystem.Models;
+using MunicipalElectionsManagementSystem.Services;
 
 namespace MunicipalElectionsManagementSystem.Controllers;
 
@@ -19,16 +21,38 @@ public class VotingGuideController : Controller
 
     public async Task<IActionResult> Index()
     {
+        return View(await GetGuideCandidatesAsync());
+    }
+
+    public async Task<IActionResult> Pdf(
+        [FromServices] VotingGuidePdfService pdfService)
+    {
+        var candidates = await GetGuideCandidatesAsync();
+
+        if (candidates.Count == 0)
+        {
+            TempData["ErrorMessage"] = "Add candidates to your guide before downloading it.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        //elections are in BC, so print the local date rather than the server's UTC date
+        var printDate = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
+            DateTime.UtcNow, "America/Vancouver");
+
+        return File(pdfService.Generate(candidates, printDate),
+            "application/pdf", "voting-guide.pdf");
+    }
+
+    private async Task<List<Candidate>> GetGuideCandidatesAsync()
+    {
         var ids = GetCandidateIds();
 
-        var candidates = await _context.Candidates
+        return await _context.Candidates
             .AsNoTracking()
             .Include(c => c.Position)
                 .ThenInclude(p => p.Municipality)
             .Where(c => ids.Contains(c.CandidateId))
             .ToListAsync();
-
-        return View(candidates);
     }
 
     [HttpPost]

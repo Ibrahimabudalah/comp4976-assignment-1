@@ -8,11 +8,6 @@
 # Local reference material
 ref/
 
-# Xcode (iOS app)
-xcuserdata/
-DerivedData/
-*.xcuserstate
-
 # SQLite databases
 *.db
 *.db-shm

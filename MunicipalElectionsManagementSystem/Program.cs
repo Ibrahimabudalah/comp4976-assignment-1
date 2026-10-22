@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -46,6 +47,11 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
 
+//re-check sign-in cookies against the database every minute,
+//so role changes and deleted users take effect quickly
+builder.Services.Configure<SecurityStampValidatorOptions>(options =>
+    options.ValidationInterval = TimeSpan.FromMinutes(1));
+
 //login and access denied paths
 builder.Services.ConfigureApplicationCookie(options =>
 {
@@ -71,7 +77,12 @@ QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("SuperAdminOnly", policy =>
-        policy.RequireRole("Super Admin"));
+        policy.RequireRole(AdminRoles.SuperAdmin));
+
+    //any admin group; data is then scoped per municipality by MunicipalityAuthorizationService
+    options.AddPolicy("AdminAccess", policy =>
+        policy.RequireAssertion(context =>
+            context.User.HasClaim(c => c.Type == ClaimTypes.Role)));
 });
 
 var app = builder.Build();

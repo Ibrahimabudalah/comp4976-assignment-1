@@ -12,7 +12,7 @@ using MunicipalElectionsManagementSystem.ViewModels;
 namespace MunicipalElectionsManagementSystem.Areas.Admin.Controllers;
 
 [Area("Admin")]
-[Authorize(Roles = "Super Admin,Pitt Meadows Admin")]
+[Authorize(Policy = "AdminAccess")]
 public class CandidatesController : Controller
 {
     private readonly ApplicationDbContext _context;

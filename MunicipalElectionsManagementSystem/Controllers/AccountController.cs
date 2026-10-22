@@ -53,14 +53,10 @@ public class AccountController : Controller
             return View(model);
         }
 
-        // Only administrators are allowed to log in.
-        var isSuperAdmin = await _userManager.IsInRoleAsync(
-            user, "Super Admin");
+        // Only administrators are allowed to log in; every role is an admin group.
+        var roles = await _userManager.GetRolesAsync(user);
 
-        var isMunicipalityAdmin = await _userManager.IsInRoleAsync(
-            user, "Pitt Meadows Admin");
-
-        if (!isSuperAdmin && !isMunicipalityAdmin)
+        if (roles.Count == 0)
         {
             ModelState.AddModelError(
                 string.Empty, "You do not have administrator access.");

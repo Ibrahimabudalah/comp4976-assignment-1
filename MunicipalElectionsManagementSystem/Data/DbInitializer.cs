@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using MunicipalElectionsManagementSystem.Models;
+using MunicipalElectionsManagementSystem.Services;
 
 namespace MunicipalElectionsManagementSystem.Data;
 
@@ -25,8 +26,14 @@ public static class DbInitializer
             await SeedDomainDataAsync(db);
         }
 
-        //create required roles
-        string[] roles = { "Super Admin", "Pitt Meadows Admin" };
+        //create required roles: Super Admin plus one admin group per municipality
+        var municipalityNames = await db.Municipalities
+            .Select(m => m.Name)
+            .ToListAsync();
+
+        var roles = municipalityNames
+            .Select(AdminRoles.ForMunicipality)
+            .Prepend(AdminRoles.SuperAdmin);
 
         foreach (var role in roles)
         {
@@ -46,16 +53,21 @@ public static class DbInitializer
         await CreateUserAsync(
             userManager,
             "super",
-            "Super Admin",
+            AdminRoles.SuperAdmin,
             null,
             configuration["SeedUsers:SuperPassword"]);
 
-        await CreateUserAsync(
-            userManager,
-            "pm",
-            "Pitt Meadows Admin",
-            pittMeadows?.MunicipalityId,
-            configuration["SeedUsers:PmPassword"]);
+        //Pitt Meadows cannot be deleted while pm is assigned to it,
+        //so it is only missing if an admin removed both
+        if (pittMeadows != null)
+        {
+            await CreateUserAsync(
+                userManager,
+                "pm",
+                AdminRoles.ForMunicipality(pittMeadows.Name),
+                pittMeadows.MunicipalityId,
+                configuration["SeedUsers:PmPassword"]);
+        }
     }
 
     private static async Task SeedDomainDataAsync(ApplicationDbContext db)

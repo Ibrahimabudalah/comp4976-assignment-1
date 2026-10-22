@@ -10,7 +10,7 @@ using MunicipalElectionsManagementSystem.Services;
 namespace MunicipalElectionsManagementSystem.Areas.Admin.Controllers;
 
 [Area("Admin")]
-[Authorize(Roles = "Super Admin,Pitt Meadows Admin")]
+[Authorize(Policy = "AdminAccess")]
 public class DashboardController : Controller
 {
     private readonly ApplicationDbContext _context;

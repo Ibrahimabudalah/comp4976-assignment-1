@@ -1,6 +1,7 @@
 
 using System.Security.Claims;
 using Microsoft.AspNetCore.Identity;
+using MunicipalElectionsManagementSystem.Data;
 using MunicipalElectionsManagementSystem.Models;
 
 namespace MunicipalElectionsManagementSystem.Services;
@@ -8,11 +9,14 @@ namespace MunicipalElectionsManagementSystem.Services;
 public class MunicipalityAuthorizationService
 {
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly ApplicationDbContext _context;
 
     public MunicipalityAuthorizationService(
-        UserManager<ApplicationUser> userManager)
+        UserManager<ApplicationUser> userManager,
+        ApplicationDbContext context)
     {
         _userManager = userManager;
+        _context = context;
     }
 
     public async Task<bool> CanManageMunicipalityAsync(
@@ -31,24 +35,28 @@ public class MunicipalityAuthorizationService
             return false;
         }
 
-        if (await _userManager.IsInRoleAsync(user, "Super Admin"))
+        if (await _userManager.IsInRoleAsync(user, AdminRoles.SuperAdmin))
         {
             return true;
         }
 
-        if (!await _userManager.IsInRoleAsync(
-                user, "Pitt Meadows Admin"))
+        if (user.MunicipalityId != municipalityId)
         {
             return false;
         }
 
-        return user.MunicipalityId == municipalityId;
+        //a municipality admin must be assigned to the municipality
+        //and be a member of that municipality's admin group
+        var municipality = await _context.Municipalities.FindAsync(municipalityId);
+
+        return municipality != null && await _userManager.IsInRoleAsync(
+            user, AdminRoles.ForMunicipality(municipality.Name));
     }
 
     public bool CanManageAllMunicipalities(
         ClaimsPrincipal principal)
     {
         return principal.Identity?.IsAuthenticated == true
-            && principal.IsInRole("Super Admin");
+            && principal.IsInRole(AdminRoles.SuperAdmin);
     }
 }

@@ -1,5 +1,6 @@
 
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MunicipalElectionsManagementSystem.Data;
@@ -15,11 +16,16 @@ public class MunicipalitiesController : Controller
 {
     private readonly ApplicationDbContext _context;
     private readonly ImageUploadService _imageUploadService;
+    private readonly RoleManager<IdentityRole> _roleManager;
 
-    public MunicipalitiesController(ApplicationDbContext context, ImageUploadService imageUploadService)
+    public MunicipalitiesController(
+        ApplicationDbContext context,
+        ImageUploadService imageUploadService,
+        RoleManager<IdentityRole> roleManager)
     {
         _context = context;
         _imageUploadService = imageUploadService;
+        _roleManager = roleManager;
     }
 
     public async Task<IActionResult> Index()
@@ -42,6 +48,8 @@ public class MunicipalitiesController : Controller
     public async Task<IActionResult> Create(
     MunicipalityFormViewModel model)
     {
+        await ValidateUniqueNameAsync(model.Name, null);
+
         if (!ModelState.IsValid)
         {
             return View(model);
@@ -81,8 +89,16 @@ public class MunicipalitiesController : Controller
             throw;
         }
 
+        //each municipality gets its own admin group
+        var roleName = AdminRoles.ForMunicipality(municipality.Name);
+
+        if (!await _roleManager.RoleExistsAsync(roleName))
+        {
+            await _roleManager.CreateAsync(new IdentityRole(roleName));
+        }
+
         TempData["SuccessMessage"] =
-            "Municipality created successfully.";
+            $"Municipality created successfully with admin group \"{roleName}\".";
 
         return RedirectToAction(nameof(Index));
     }
@@ -139,6 +155,8 @@ public class MunicipalitiesController : Controller
 
         model.ExistingLogoFileName = municipality.LogoFileName;
 
+        await ValidateUniqueNameAsync(model.Name, id);
+
         if (!ModelState.IsValid)
         {
             return View(model);
@@ -158,6 +176,7 @@ public class MunicipalitiesController : Controller
         }
 
         var oldLogoFileName = municipality.LogoFileName;
+        var oldRoleName = AdminRoles.ForMunicipality(municipality.Name);
 
         municipality.Name = model.Name;
         municipality.Province = model.Province;
@@ -184,6 +203,21 @@ public class MunicipalitiesController : Controller
         {
             _imageUploadService.DeleteImage(
                 oldLogoFileName, "municipalities");
+        }
+
+        //keep the admin group name in step with the municipality name;
+        //members keep their access because the role id does not change
+        var newRoleName = AdminRoles.ForMunicipality(municipality.Name);
+        var role = await _roleManager.FindByNameAsync(oldRoleName);
+
+        if (role == null)
+        {
+            await _roleManager.CreateAsync(new IdentityRole(newRoleName));
+        }
+        else if (oldRoleName != newRoleName)
+        {
+            await _roleManager.SetRoleNameAsync(role, newRoleName);
+            await _roleManager.UpdateAsync(role);
         }
 
         TempData["SuccessMessage"] =
@@ -242,11 +276,35 @@ public class MunicipalitiesController : Controller
         _context.Municipalities.Remove(municipality);
         await _context.SaveChangesAsync();
 
+        var role = await _roleManager.FindByNameAsync(
+            AdminRoles.ForMunicipality(municipality.Name));
+
+        if (role != null)
+        {
+            await _roleManager.DeleteAsync(role);
+        }
+
         _imageUploadService.DeleteImage(
     municipality.LogoFileName, "municipalities");
 
         TempData["SuccessMessage"] = "Municipality deleted successfully.";
 
         return RedirectToAction(nameof(Index));
+    }
+
+    //municipality names must be unique because each one names an admin group;
+    //Identity matches role names case-insensitively, so this check does too
+    private async Task ValidateUniqueNameAsync(string name, int? excludeId)
+    {
+        var normalized = name.Trim().ToUpper();
+
+        bool exists = await _context.Municipalities.AnyAsync(m =>
+            m.Name.ToUpper() == normalized && m.MunicipalityId != excludeId);
+
+        if (exists)
+        {
+            ModelState.AddModelError(nameof(MunicipalityFormViewModel.Name),
+                "A municipality with this name already exists.");
+        }
     }
 }

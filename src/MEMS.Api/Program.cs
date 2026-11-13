@@ -1,41 +1,92 @@
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Scalar.AspNetCore;
+using MEMS.Api.Middleware;
+using MEMS.Data;
+using MEMS.Data.Entities;
+using MEMS.Data.Repositories;
+using MEMS.Data.Seeding;
+using MEMS.ServiceDefaults;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+// Aspire Service Defaults
+builder.AddServiceDefaults();
+
+// Controllers with JSON options
+builder.Services.AddControllers();
+
+// Database connection
+var connectionString = builder.Configuration.GetConnectionString("memsdb")
+    ?? builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? "Server=(localdb)\\mssqllocaldb;Database=MEMS_Db;Trusted_Connection=True;MultipleActiveResultSets=true";
+
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlServer(connectionString, sql =>
+    {
+        sql.EnableRetryOnFailure(maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(10), errorNumbersToAdd: null);
+    }));
+
+// ASP.NET Core Identity
+builder.Services.AddIdentityCore<ApplicationUser>(options =>
+{
+    options.Password.RequireDigit = true;
+    options.Password.RequireLowercase = true;
+    options.Password.RequireUppercase = true;
+    options.Password.RequireNonAlphanumeric = true;
+    options.Password.RequiredLength = 8;
+})
+.AddRoles<IdentityRole>()
+.AddEntityFrameworkStores<ApplicationDbContext>();
+
+// Repositories
+builder.Services.AddScoped<IMunicipalityRepository, MunicipalityRepository>();
+builder.Services.AddScoped<IPositionRepository, PositionRepository>();
+builder.Services.AddScoped<ICandidateRepository, CandidateRepository>();
+
+// CORS for Blazor WASM Public site & Admin clients
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
+// Native OpenAPI generation
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+// Aspire Health Checks and Metrics endpoints
+app.MapDefaultEndpoints();
+
+// Global Exception Handling Middleware
+app.UseMiddleware<GlobalExceptionMiddleware>();
+
+// OpenAPI endpoints
+app.MapOpenApi();
+app.MapScalarApiReference();
+
+app.UseCors();
+app.UseAuthorization();
+
+app.MapControllers();
+
+// Auto seed database during initialization
+using (var scope = app.Services.CreateScope())
 {
-    app.MapOpenApi();
+    try
+    {
+        await DbInitializer.InitializeAsync(scope.ServiceProvider, app.Configuration);
+    }
+    catch (Exception ex)
+    {
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        logger.LogWarning(ex, "Initial database migration/seeding will occur when SQL Server becomes available.");
+    }
 }
-
-app.UseHttpsRedirection();
-
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}

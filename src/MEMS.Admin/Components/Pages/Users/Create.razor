@@ -1,0 +1,170 @@
+@page "/users/create"
+@attribute [Authorize(Roles = AdminRoles.SuperAdmin)]
+@inject UserManager<ApplicationUser> UserManager
+@inject RoleManager<IdentityRole> RoleManager
+@inject IMunicipalityRepository MunicipalityRepo
+@inject NavigationManager Navigation
+
+<PageTitle>Create Administrator - MEMS Admin</PageTitle>
+
+<div class="container-fluid" style="max-width: 700px;">
+    <div class="mb-4">
+        <a href="users" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Administrators</a>
+        <h2 class="fw-bold mb-1">Create Administrator</h2>
+        <span class="text-muted">Provision administrative credentials and set tenant boundaries.</span>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show">
+            <strong>Error:</strong> @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-4">
+            <EditForm Model="model" OnValidSubmit="HandleSubmit">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="text-danger mb-3" />
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Username *</label>
+                    <InputText @bind-Value="model.UserName" class="form-control" placeholder="e.g. surreyadmin" />
+                    <ValidationMessage For="() => model.UserName" class="text-danger small" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Full Name</label>
+                    <InputText @bind-Value="model.FullName" class="form-control" placeholder="e.g. John Doe" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Password * (Min 8 chars, 1 digit, 1 upper, 1 lower, 1 special)</label>
+                    <InputText type="password" @bind-Value="model.Password" class="form-control" placeholder="P&#64;$$w0rd" />
+                    <ValidationMessage For="() => model.Password" class="text-danger small" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Role *</label>
+                    <InputSelect @bind-Value="selectedRole" class="form-select">
+                        <option value="@AdminRoles.MunicipalityAdmin">Municipality Administrator</option>
+                        <option value="@AdminRoles.SuperAdmin">Super Administrator (Full System Access)</option>
+                    </InputSelect>
+                </div>
+
+                @if (selectedRole != AdminRoles.SuperAdmin)
+                {
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Assigned Municipality Tenant *</label>
+                        <InputSelect @bind-Value="model.MunicipalityId" class="form-select">
+                            <option value="">-- Select Municipality --</option>
+                            @foreach (var m in municipalities)
+                            {
+                                <option value="@m.MunicipalityId">@m.Name (/@m.TenantSlug)</option>
+                            }
+                        </InputSelect>
+                    </div>
+                }
+
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    <a href="users" class="btn btn-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary px-4" disabled="@isSubmitting">
+                        @if (isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                            <span>Creating...</span>
+                        }
+                        else
+                        {
+                            <span>Create Administrator</span>
+                        }
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    private CreateAdminUserDto model = new();
+    private string selectedRole = AdminRoles.MunicipalityAdmin;
+    private List<Municipality> municipalities = new();
+    private string? errorMessage;
+    private bool isSubmitting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        municipalities = await MunicipalityRepo.GetAllAsync();
+        model.Role = selectedRole;
+    }
+
+    private async Task HandleSubmit()
+    {
+        isSubmitting = true;
+        errorMessage = null;
+
+        try
+        {
+            if (selectedRole != AdminRoles.SuperAdmin && !model.MunicipalityId.HasValue)
+            {
+                errorMessage = "Please assign a municipality for the Municipality Administrator.";
+                isSubmitting = false;
+                return;
+            }
+
+            var user = new ApplicationUser
+            {
+                UserName = model.UserName.Trim(),
+                FullName = model.FullName?.Trim(),
+                Email = $"{model.UserName.Trim().ToLower()}@mems.local",
+                EmailConfirmed = true,
+                MunicipalityId = selectedRole == AdminRoles.SuperAdmin ? null : model.MunicipalityId
+            };
+
+            var result = await UserManager.CreateAsync(user, model.Password);
+            if (!result.Succeeded)
+            {
+                errorMessage = string.Join("; ", result.Errors.Select(e => e.Description));
+                isSubmitting = false;
+                return;
+            }
+
+            // Assign proper roles with checked IdentityResult
+            if (selectedRole == AdminRoles.SuperAdmin)
+            {
+                var roleResult = await UserManager.AddToRoleAsync(user, AdminRoles.SuperAdmin);
+                if (!roleResult.Succeeded)
+                {
+                    errorMessage = "User created, but Super Admin role assignment failed.";
+                    isSubmitting = false;
+                    return;
+                }
+            }
+            else if (model.MunicipalityId.HasValue)
+            {
+                var municipality = await MunicipalityRepo.GetByIdAsync(model.MunicipalityId.Value);
+                if (municipality != null)
+                {
+                    var specificRole = AdminRoles.ForMunicipality(municipality.Name);
+                    if (!await RoleManager.RoleExistsAsync(specificRole))
+                    {
+                        await RoleManager.CreateAsync(new IdentityRole(specificRole));
+                    }
+                    await UserManager.AddToRoleAsync(user, specificRole);
+                }
+                await UserManager.AddToRoleAsync(user, AdminRoles.MunicipalityAdmin);
+            }
+
+            Navigation.NavigateTo("users");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An unexpected error occurred: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+}

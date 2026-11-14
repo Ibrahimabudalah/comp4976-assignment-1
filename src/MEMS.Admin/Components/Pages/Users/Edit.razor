@@ -1,0 +1,204 @@
+@page "/users/edit/{id}"
+@attribute [Authorize(Roles = AdminRoles.SuperAdmin)]
+@inject UserManager<ApplicationUser> UserManager
+@inject RoleManager<IdentityRole> RoleManager
+@inject IMunicipalityRepository MunicipalityRepo
+@inject NavigationManager Navigation
+
+<PageTitle>Edit Administrator - MEMS Admin</PageTitle>
+
+<div class="container-fluid" style="max-width: 700px;">
+    <div class="mb-4">
+        <a href="users" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Administrators</a>
+        <h2 class="fw-bold mb-1">Edit Administrator</h2>
+        <span class="text-muted">Update administrative role, municipality tenant, or reset password.</span>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show">
+            <strong>Error:</strong> @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else if (user == null)
+    {
+        <div class="alert alert-warning">User not found.</div>
+    }
+    else
+    {
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-4">
+                <EditForm Model="model" OnValidSubmit="HandleSubmit">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary class="text-danger mb-3" />
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Username *</label>
+                        <InputText @bind-Value="model.UserName" class="form-control" />
+                        <ValidationMessage For="() => model.UserName" class="text-danger small" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Full Name</label>
+                        <InputText @bind-Value="model.FullName" class="form-control" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Role *</label>
+                        <InputSelect @bind-Value="selectedRole" class="form-select">
+                            <option value="@AdminRoles.MunicipalityAdmin">Municipality Administrator</option>
+                            <option value="@AdminRoles.SuperAdmin">Super Administrator (Full System Access)</option>
+                        </InputSelect>
+                    </div>
+
+                    @if (selectedRole != AdminRoles.SuperAdmin)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Assigned Municipality Tenant *</label>
+                            <InputSelect @bind-Value="model.MunicipalityId" class="form-select">
+                                <option value="">-- Select Municipality --</option>
+                                @foreach (var m in municipalities)
+                                {
+                                    <option value="@m.MunicipalityId">@m.Name (/@m.TenantSlug)</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    }
+
+                    <div class="mb-4 pt-3 border-top">
+                        <label class="form-label fw-semibold">Reset Password (Optional)</label>
+                        <InputText type="password" @bind-Value="model.NewPassword" class="form-control" placeholder="Leave blank to keep existing password" />
+                        <small class="text-muted">Only fill this if you want to reset the user's password.</small>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2">
+                        <a href="users" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary px-4" disabled="@isSubmitting">
+                            @if (isSubmitting)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                                <span>Saving...</span>
+                            }
+                            else
+                            {
+                                <span>Save Changes</span>
+                            }
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string Id { get; set; } = string.Empty;
+
+    private ApplicationUser? user;
+    private UpdateAdminUserDto model = new();
+    private string selectedRole = AdminRoles.MunicipalityAdmin;
+    private List<Municipality> municipalities = new();
+    private string? errorMessage;
+    private bool isLoading = true;
+    private bool isSubmitting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        user = await UserManager.FindByIdAsync(Id);
+        municipalities = await MunicipalityRepo.GetAllAsync();
+
+        if (user != null)
+        {
+            var isSuper = await UserManager.IsInRoleAsync(user, AdminRoles.SuperAdmin);
+            selectedRole = isSuper ? AdminRoles.SuperAdmin : AdminRoles.MunicipalityAdmin;
+
+            model = new UpdateAdminUserDto
+            {
+                Id = user.Id,
+                UserName = user.UserName ?? string.Empty,
+                FullName = user.FullName,
+                MunicipalityId = isSuper ? null : user.MunicipalityId,
+                Role = selectedRole
+            };
+        }
+
+        isLoading = false;
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (user == null) return;
+        isSubmitting = true;
+        errorMessage = null;
+
+        try
+        {
+            user.UserName = model.UserName.Trim();
+            user.FullName = model.FullName?.Trim();
+            user.MunicipalityId = selectedRole == AdminRoles.SuperAdmin ? null : model.MunicipalityId;
+
+            var result = await UserManager.UpdateAsync(user);
+            if (!result.Succeeded)
+            {
+                errorMessage = string.Join("; ", result.Errors.Select(e => e.Description));
+                isSubmitting = false;
+                return;
+            }
+
+            // Reset password if provided
+            if (!string.IsNullOrWhiteSpace(model.NewPassword))
+            {
+                var token = await UserManager.GeneratePasswordResetTokenAsync(user);
+                var resetResult = await UserManager.ResetPasswordAsync(user, token, model.NewPassword);
+                if (!resetResult.Succeeded)
+                {
+                    errorMessage = $"Password reset failed: {string.Join("; ", resetResult.Errors.Select(e => e.Description))}";
+                    isSubmitting = false;
+                    return;
+                }
+            }
+
+            // Sync roles
+            var currentRoles = await UserManager.GetRolesAsync(user);
+            await UserManager.RemoveFromRolesAsync(user, currentRoles);
+
+            if (selectedRole == AdminRoles.SuperAdmin)
+            {
+                await UserManager.AddToRoleAsync(user, AdminRoles.SuperAdmin);
+            }
+            else if (model.MunicipalityId.HasValue)
+            {
+                var municipality = await MunicipalityRepo.GetByIdAsync(model.MunicipalityId.Value);
+                if (municipality != null)
+                {
+                    var specificRole = AdminRoles.ForMunicipality(municipality.Name);
+                    if (!await RoleManager.RoleExistsAsync(specificRole))
+                    {
+                        await RoleManager.CreateAsync(new IdentityRole(specificRole));
+                    }
+                    await UserManager.AddToRoleAsync(user, specificRole);
+                }
+                await UserManager.AddToRoleAsync(user, AdminRoles.MunicipalityAdmin);
+            }
+
+            Navigation.NavigateTo("users");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An unexpected error occurred: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+}

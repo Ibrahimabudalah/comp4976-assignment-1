@@ -1,0 +1,103 @@
+@page "/municipalities"
+@attribute [Authorize(Roles = AdminRoles.SuperAdmin)]
+@inject IMunicipalityRepository MunicipalityRepo
+@inject NavigationManager Navigation
+
+<PageTitle>Municipalities - MEMS Admin</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">Municipalities &amp; Tenants</h2>
+            <span class="text-muted">Manage system tenants, public URL slugs, and civic profiles.</span>
+        </div>
+        <a href="municipalities/create" class="btn btn-primary">
+            + New Municipality
+        </a>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else if (!municipalities.Any())
+    {
+        <div class="alert alert-info">
+            No municipalities have been registered yet. Click "+ New Municipality" to create your first tenant.
+        </div>
+    }
+    else
+    {
+        <div class="card shadow-sm border-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 70px;">Logo</th>
+                            <th>Municipality Name</th>
+                            <th>Tenant URL Slug</th>
+                            <th>Province</th>
+                            <th>Election Date</th>
+                            <th>Positions</th>
+                            <th>Candidates</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var m in municipalities)
+                        {
+                            <tr>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(m.LogoFileName))
+                                    {
+                                        <img src="uploads/logos/@m.LogoFileName" alt="@m.Name" class="rounded" style="width: 45px; height: 45px; object-fit: contain;" />
+                                    }
+                                    else
+                                    {
+                                        <div class="bg-secondary text-white rounded d-flex align-items-center justify-content-center" style="width: 45px; height: 45px; font-size: 0.8rem;">
+                                            🏛️
+                                        </div>
+                                    }
+                                </td>
+                                <td>
+                                    <strong>@m.Name</strong>
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-dark border font-monospace">/@m.TenantSlug</span>
+                                </td>
+                                <td>@m.Province</td>
+                                <td>@m.ElectionDate.ToString("MMM d, yyyy")</td>
+                                <td>
+                                    <span class="badge bg-primary">@(m.Positions?.Count ?? 0)</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info text-dark">@(m.Candidates?.Count ?? 0)</span>
+                                </td>
+                                <td class="text-end">
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="municipalities/details/@m.MunicipalityId" class="btn btn-outline-secondary">Details</a>
+                                        <a href="municipalities/edit/@m.MunicipalityId" class="btn btn-outline-primary">Edit</a>
+                                        <a href="municipalities/delete/@m.MunicipalityId" class="btn btn-outline-danger">Delete</a>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<Municipality> municipalities = new();
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        municipalities = await MunicipalityRepo.GetAllAsync();
+        isLoading = false;
+    }
+}

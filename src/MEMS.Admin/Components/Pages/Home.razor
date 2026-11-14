@@ -1,7 +1,151 @@
-﻿@page "/"
+@page "/"
+@attribute [Authorize]
+@inject IMunicipalityRepository MunicipalityRepo
+@inject IPositionRepository PositionRepo
+@inject ICandidateRepository CandidateRepo
+@inject TenantAuthorizationService AuthService
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Admin Dashboard - MEMS</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">Administration Dashboard</h2>
+            @if (isSuperAdmin)
+            {
+                <span class="text-muted">System Overview (All Municipalities)</span>
+            }
+            else if (assignedMunicipality != null)
+            {
+                <span class="text-primary fw-semibold">Tenant: @assignedMunicipality.Name</span>
+            }
+        </div>
+        <div>
+            <span class="badge bg-secondary">Live Status: Active</span>
+        </div>
+    </div>
 
-Welcome to your new app.
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading metrics...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Metrics Cards -->
+        <div class="row g-4 mb-5">
+            @if (isSuperAdmin)
+            {
+                <div class="col-md-4">
+                    <div class="card shadow-sm border-0 border-start border-primary border-4 h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-muted text-uppercase fw-semibold mb-2">Municipalities</h6>
+                                    <h2 class="fw-bold mb-0 text-primary">@municipalityCount</h2>
+                                </div>
+                                <div class="fs-1 text-primary opacity-50">🏛️</div>
+                            </div>
+                            <div class="mt-3">
+                                <a href="municipalities" class="btn btn-sm btn-outline-primary">Manage Municipalities &rarr;</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <div class="@(isSuperAdmin ? "col-md-4" : "col-md-6")">
+                <div class="card shadow-sm border-0 border-start border-success border-4 h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted text-uppercase fw-semibold mb-2">Positions</h6>
+                                <h2 class="fw-bold mb-0 text-success">@positionCount</h2>
+                            </div>
+                            <div class="fs-1 text-success opacity-50">💼</div>
+                        </div>
+                        <div class="mt-3">
+                            <a href="positions" class="btn btn-sm btn-outline-success">Manage Positions &rarr;</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="@(isSuperAdmin ? "col-md-4" : "col-md-6")">
+                <div class="card shadow-sm border-0 border-start border-info border-4 h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted text-uppercase fw-semibold mb-2">Candidates</h6>
+                                <h2 class="fw-bold mb-0 text-info">@candidateCount</h2>
+                            </div>
+                            <div class="fs-1 text-info opacity-50">👥</div>
+                        </div>
+                        <div class="mt-3">
+                            <a href="candidates" class="btn btn-sm btn-outline-info">Manage Candidates &rarr;</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions & Information -->
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-body-tertiary fw-semibold">
+                Administrative Quick Actions
+            </div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-2">
+                    @if (isSuperAdmin)
+                    {
+                        <a href="municipalities/create" class="btn btn-primary btn-sm">
+                            + New Municipality Tenant
+                        </a>
+                        <a href="users/create" class="btn btn-outline-primary btn-sm">
+                            + New Administrator
+                        </a>
+                    }
+                    <a href="positions/create" class="btn btn-success btn-sm">
+                        + New Position
+                    </a>
+                    <a href="candidates/create" class="btn btn-info text-white btn-sm">
+                        + New Candidate
+                    </a>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool isLoading = true;
+    private bool isSuperAdmin = false;
+    private int municipalityCount = 0;
+    private int positionCount = 0;
+    private int candidateCount = 0;
+    private Municipality? assignedMunicipality;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isSuperAdmin = await AuthService.IsSuperAdminAsync();
+        var assignedId = await AuthService.GetAssignedMunicipalityIdAsync();
+
+        if (isSuperAdmin)
+        {
+            municipalityCount = await MunicipalityRepo.GetCountAsync();
+            positionCount = await PositionRepo.GetCountAsync();
+            candidateCount = await CandidateRepo.GetCountAsync();
+        }
+        else if (assignedId.HasValue)
+        {
+            assignedMunicipality = await MunicipalityRepo.GetByIdAsync(assignedId.Value);
+            positionCount = await PositionRepo.GetCountAsync(assignedId.Value);
+            candidateCount = await CandidateRepo.GetCountAsync(assignedId.Value);
+        }
+
+        isLoading = false;
+    }
+}

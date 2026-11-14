@@ -1,15 +1,19 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
-    <ResourcePreloader />
-    <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]" />
-    <link rel="stylesheet" href="@Assets["app.css"]" />
-    <link rel="stylesheet" href="@Assets["MEMS.Admin.styles.css"]" />
-    <ImportMap />
+    <script>
+        // Apply saved theme before page paints
+        document.documentElement.setAttribute("data-bs-theme",
+            localStorage.getItem("theme") ??
+            (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
+    </script>
+    <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="MEMS.Admin.styles.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
     <HeadOutlet />
 </head>
@@ -17,7 +21,15 @@
 <body>
     <Routes />
     <ReconnectModal />
-    <script src="@Assets["_framework/blazor.web.js"]"></script>
+    <script src="_framework/blazor.web.js"></script>
+    <script>
+        window.toggleTheme = () => {
+            const current = document.documentElement.getAttribute("data-bs-theme") === "dark" ? "light" : "dark";
+            document.documentElement.setAttribute("data-bs-theme", current);
+            localStorage.setItem("theme", current);
+            return current;
+        };
+    </script>
 </body>
 
 </html>

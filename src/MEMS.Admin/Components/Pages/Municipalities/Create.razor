@@ -1,0 +1,239 @@
+@page "/municipalities/create"
+@attribute [Authorize(Roles = AdminRoles.SuperAdmin)]
+@inject IMunicipalityRepository MunicipalityRepo
+@inject RoleManager<IdentityRole> RoleManager
+@inject UserManager<ApplicationUser> UserManager
+@inject ImageUploadService ImageUploadService
+@inject NavigationManager Navigation
+
+<PageTitle>Create Municipality - MEMS Admin</PageTitle>
+
+<div class="container-fluid" style="max-width: 900px;">
+    <div class="mb-4">
+        <a href="municipalities" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Municipalities</a>
+        <h2 class="fw-bold mb-1">Create Municipality Tenant</h2>
+        <span class="text-muted">Define a new civic jurisdiction, URL tenant slug, and civic credentials.</span>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <strong>Error:</strong> @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-4">
+            <EditForm Model="model" OnValidSubmit="HandleSubmit">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="text-danger mb-3" />
+
+                <h5 class="fw-bold text-primary mb-3">1. Municipality Details</h5>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-7">
+                        <label class="form-label fw-semibold">Municipality Name *</label>
+                        <InputText @bind-Value="model.Name" class="form-control" placeholder="e.g. City of Burnaby" />
+                        <ValidationMessage For="() => model.Name" class="text-danger small" />
+                    </div>
+
+                    <div class="col-md-5">
+                        <label class="form-label fw-semibold">Tenant URL Slug *</label>
+                        <div class="input-group">
+                            <span class="input-group-text">/</span>
+                            <InputText @bind-Value="model.TenantSlug" class="form-control" placeholder="e.g. burnaby" />
+                        </div>
+                        <small class="text-muted">Used for public routing (e.g. /burnaby)</small>
+                        <ValidationMessage For="() => model.TenantSlug" class="text-danger small" />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Province *</label>
+                        <InputText @bind-Value="model.Province" class="form-control" />
+                        <ValidationMessage For="() => model.Province" class="text-danger small" />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Election Date *</label>
+                        <InputDate @bind-Value="model.ElectionDate" class="form-control" />
+                        <ValidationMessage For="() => model.ElectionDate" class="text-danger small" />
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Description</label>
+                        <InputTextArea @bind-Value="model.Description" class="form-control" rows="3" placeholder="Brief civic profile..." />
+                        <ValidationMessage For="() => model.Description" class="text-danger small" />
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Municipality Logo (PNG, JPG, WebP - Max 2MB)</label>
+                        <InputFile OnChange="HandleLogoSelected" class="form-control" accept=".jpg,.jpeg,.png,.webp" />
+                    </div>
+                </div>
+
+                <hr class="my-4" />
+
+                <!-- A1 Deficiency Fix: Option to create initial administrator during municipality creation -->
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold text-primary mb-0">2. Initial Municipality Administrator (Optional)</h5>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="createAdminCheck" @bind="model.CreateInitialAdmin" />
+                        <label class="form-check-label fw-semibold" for="createAdminCheck">Create admin user now</label>
+                    </div>
+                </div>
+
+                @if (model.CreateInitialAdmin)
+                {
+                    <div class="bg-light p-3 rounded mb-4 border">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Admin Username *</label>
+                                <InputText @bind-Value="model.AdminUserName" class="form-control" placeholder="e.g. burnabyadmin" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Admin Full Name</label>
+                                <InputText @bind-Value="model.AdminFullName" class="form-control" placeholder="e.g. Jane Doe" />
+                            </div>
+                            <div class="col-md-12">
+                                <label class="form-label fw-semibold">Password * (Min 8 characters, digit, upper, lower, symbol)</label>
+                                <InputText type="password" @bind-Value="model.AdminPassword" class="form-control" placeholder="P&#64;$$w0rd" />
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    <a href="municipalities" class="btn btn-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary px-4" disabled="@isSubmitting">
+                        @if (isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                            <span>Saving...</span>
+                        }
+                        else
+                        {
+                            <span>Create Municipality</span>
+                        }
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    private CreateMunicipalityDto model = new();
+    private IBrowserFile? selectedLogoFile;
+    private string? errorMessage;
+    private bool isSubmitting = false;
+
+    private void HandleLogoSelected(InputFileChangeEventArgs e)
+    {
+        selectedLogoFile = e.File;
+    }
+
+    private async Task HandleSubmit()
+    {
+        isSubmitting = true;
+        errorMessage = null;
+
+        try
+        {
+            // Validate unique name and slug
+            if (await MunicipalityRepo.NameExistsAsync(model.Name))
+            {
+                errorMessage = $"A municipality named '{model.Name}' already exists.";
+                isSubmitting = false;
+                return;
+            }
+
+            if (await MunicipalityRepo.SlugExistsAsync(model.TenantSlug))
+            {
+                errorMessage = $"The tenant slug '{model.TenantSlug}' is already taken.";
+                isSubmitting = false;
+                return;
+            }
+
+            // Save logo if selected
+            string? logoFileName = null;
+            if (selectedLogoFile != null)
+            {
+                try
+                {
+                    logoFileName = await ImageUploadService.SaveImageAsync(selectedLogoFile, "logos");
+                }
+                catch (ArgumentException ex)
+                {
+                    errorMessage = ex.Message;
+                    isSubmitting = false;
+                    return;
+                }
+            }
+
+            var municipality = new Municipality
+            {
+                Name = model.Name.Trim(),
+                TenantSlug = model.TenantSlug.Trim().ToLowerInvariant(),
+                Province = model.Province.Trim(),
+                ElectionDate = model.ElectionDate,
+                Description = model.Description?.Trim(),
+                LogoFileName = logoFileName
+            };
+
+            var created = await MunicipalityRepo.CreateAsync(municipality);
+
+            // Create tenant admin group role with checked IdentityResult
+            var roleName = AdminRoles.ForMunicipality(created.Name);
+            if (!await RoleManager.RoleExistsAsync(roleName))
+            {
+                var roleResult = await RoleManager.CreateAsync(new IdentityRole(roleName));
+                if (!roleResult.Succeeded)
+                {
+                    errorMessage = $"Failed to create admin role: {string.Join(", ", roleResult.Errors.Select(e => e.Description))}";
+                    isSubmitting = false;
+                    return;
+                }
+            }
+
+            // Create initial admin user if requested
+            if (model.CreateInitialAdmin && !string.IsNullOrWhiteSpace(model.AdminUserName) && !string.IsNullOrWhiteSpace(model.AdminPassword))
+            {
+                var user = new ApplicationUser
+                {
+                    UserName = model.AdminUserName.Trim(),
+                    FullName = model.AdminFullName?.Trim(),
+                    Email = $"{model.AdminUserName.Trim().ToLower()}@{created.TenantSlug}.local",
+                    EmailConfirmed = true,
+                    MunicipalityId = created.MunicipalityId
+                };
+
+                var userResult = await UserManager.CreateAsync(user, model.AdminPassword);
+                if (!userResult.Succeeded)
+                {
+                    errorMessage = $"Municipality was created, but admin user creation failed: {string.Join(", ", userResult.Errors.Select(e => e.Description))}";
+                    isSubmitting = false;
+                    return;
+                }
+
+                var assignResult1 = await UserManager.AddToRoleAsync(user, roleName);
+                var assignResult2 = await UserManager.AddToRoleAsync(user, AdminRoles.MunicipalityAdmin);
+                if (!assignResult1.Succeeded || !assignResult2.Succeeded)
+                {
+                    errorMessage = "Admin user was created, but role assignment failed.";
+                    isSubmitting = false;
+                    return;
+                }
+            }
+
+            Navigation.NavigateTo("municipalities");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An unexpected error occurred: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+}

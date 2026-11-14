@@ -1,23 +1,69 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
+<div class="page d-flex flex-column min-vh-100">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark px-3 py-2 shadow-sm">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold" href="">
+                MEMS <span class="badge bg-primary text-uppercase fs-7 ms-1">Admin Portal</span>
+            </a>
+
+            <div class="d-flex align-items-center ms-auto gap-3">
+                <button type="button" class="btn btn-outline-light btn-sm" @onclick="ToggleTheme">
+                    🌓 Theme
+                </button>
+
+                <AuthorizeView>
+                    <Authorized>
+                        <span class="text-light small">
+                            <strong>@context.User.Identity?.Name</strong>
+                            @if (context.User.IsInRole(AdminRoles.SuperAdmin))
+                            {
+                                <span class="badge bg-danger ms-1">Super Admin</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-info text-dark ms-1">Municipality Admin</span>
+                            }
+                        </span>
+
+                        <form action="/account/logout" method="post" class="d-inline">
+                            <AntiforgeryToken />
+                            <button type="submit" class="btn btn-danger btn-sm">Log out</button>
+                        </form>
+                    </Authorized>
+                    <NotAuthorized>
+                        <a href="/login" class="btn btn-outline-light btn-sm">Log in</a>
+                    </NotAuthorized>
+                </AuthorizeView>
+            </div>
+        </div>
+    </nav>
+
+    <div class="d-flex flex-grow-1">
+        <aside class="sidebar bg-body-tertiary border-end" style="width: 250px; min-width: 250px;">
+            <NavMenu />
+        </aside>
+
+        <main class="flex-grow-1 p-4 bg-body">
+            @Body
+        </main>
     </div>
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
-
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
+    <footer class="py-2 px-4 border-top text-muted small bg-body-tertiary">
+        <span>&copy; 2026 Municipal Elections Management System (MEMS) - Admin</span>
+    </footer>
 </div>
 
-<div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">🗙</span>
+<div id="blazor-error-ui" class="alert alert-danger fixed-bottom m-3 shadow" style="display: none;">
+    An unhandled error has occurred. <a href="" class="reload fw-bold">Reload</a>
 </div>
+
+@code {
+    private async Task ToggleTheme()
+    {
+        await JS.InvokeVoidAsync("toggleTheme");
+    }
+}

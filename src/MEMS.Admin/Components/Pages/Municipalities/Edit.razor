@@ -1,0 +1,221 @@
+@page "/municipalities/edit/{id:int}"
+@attribute [Authorize(Roles = AdminRoles.SuperAdmin)]
+@inject IMunicipalityRepository MunicipalityRepo
+@inject RoleManager<IdentityRole> RoleManager
+@inject ImageUploadService ImageUploadService
+@inject NavigationManager Navigation
+
+<PageTitle>Edit Municipality - MEMS Admin</PageTitle>
+
+<div class="container-fluid" style="max-width: 900px;">
+    <div class="mb-4">
+        <a href="municipalities" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Municipalities</a>
+        <h2 class="fw-bold mb-1">Edit Municipality Tenant</h2>
+        <span class="text-muted">Update civic profile, URL routing, and logo asset.</span>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show">
+            <strong>Error:</strong> @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else if (municipality == null)
+    {
+        <div class="alert alert-warning">Municipality not found.</div>
+    }
+    else
+    {
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-4">
+                <EditForm Model="model" OnValidSubmit="HandleSubmit">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary class="text-danger mb-3" />
+
+                    <div class="row g-3">
+                        <div class="col-md-7">
+                            <label class="form-label fw-semibold">Municipality Name *</label>
+                            <InputText @bind-Value="model.Name" class="form-control" />
+                            <ValidationMessage For="() => model.Name" class="text-danger small" />
+                        </div>
+
+                        <div class="col-md-5">
+                            <label class="form-label fw-semibold">Tenant URL Slug *</label>
+                            <div class="input-group">
+                                <span class="input-group-text">/</span>
+                                <InputText @bind-Value="model.TenantSlug" class="form-control" />
+                            </div>
+                            <ValidationMessage For="() => model.TenantSlug" class="text-danger small" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Province *</label>
+                            <InputText @bind-Value="model.Province" class="form-control" />
+                            <ValidationMessage For="() => model.Province" class="text-danger small" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Election Date *</label>
+                            <InputDate @bind-Value="model.ElectionDate" class="form-control" />
+                            <ValidationMessage For="() => model.ElectionDate" class="text-danger small" />
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Description</label>
+                            <InputTextArea @bind-Value="model.Description" class="form-control" rows="3" />
+                            <ValidationMessage For="() => model.Description" class="text-danger small" />
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Current Logo</label>
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                @if (!string.IsNullOrEmpty(municipality.LogoFileName))
+                                {
+                                    <img src="uploads/logos/@municipality.LogoFileName" alt="@municipality.Name" class="rounded border p-1" style="max-height: 80px;" />
+                                }
+                                else
+                                {
+                                    <span class="text-muted small">No logo currently uploaded.</span>
+                                }
+                            </div>
+                            <label class="form-label fw-semibold">Upload New Logo (Optional)</label>
+                            <InputFile OnChange="HandleLogoSelected" class="form-control" accept=".jpg,.jpeg,.png,.webp" />
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <a href="municipalities" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary px-4" disabled="@isSubmitting">
+                            @if (isSubmitting)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                                <span>Saving...</span>
+                            }
+                            else
+                            {
+                                <span>Save Changes</span>
+                            }
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Municipality? municipality;
+    private UpdateMunicipalityDto model = new();
+    private IBrowserFile? newLogoFile;
+    private string? errorMessage;
+    private bool isLoading = true;
+    private bool isSubmitting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        municipality = await MunicipalityRepo.GetByIdAsync(Id);
+        if (municipality != null)
+        {
+            model = new UpdateMunicipalityDto
+            {
+                MunicipalityId = municipality.MunicipalityId,
+                Name = municipality.Name,
+                TenantSlug = municipality.TenantSlug,
+                Province = municipality.Province,
+                ElectionDate = municipality.ElectionDate,
+                Description = municipality.Description,
+                LogoFileName = municipality.LogoFileName
+            };
+        }
+        isLoading = false;
+    }
+
+    private void HandleLogoSelected(InputFileChangeEventArgs e)
+    {
+        newLogoFile = e.File;
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (municipality == null) return;
+        isSubmitting = true;
+        errorMessage = null;
+
+        try
+        {
+            if (await MunicipalityRepo.NameExistsAsync(model.Name, Id))
+            {
+                errorMessage = $"A municipality named '{model.Name}' already exists.";
+                isSubmitting = false;
+                return;
+            }
+
+            if (await MunicipalityRepo.SlugExistsAsync(model.TenantSlug, Id))
+            {
+                errorMessage = $"The tenant slug '{model.TenantSlug}' is already taken.";
+                isSubmitting = false;
+                return;
+            }
+
+            var oldRoleName = AdminRoles.ForMunicipality(municipality.Name);
+            var oldLogo = municipality.LogoFileName;
+
+            if (newLogoFile != null)
+            {
+                var newLogoName = await ImageUploadService.SaveImageAsync(newLogoFile, "logos");
+                municipality.LogoFileName = newLogoName;
+                if (!string.IsNullOrEmpty(oldLogo))
+                {
+                    ImageUploadService.DeleteImage(oldLogo, "logos");
+                }
+            }
+
+            municipality.Name = model.Name.Trim();
+            municipality.TenantSlug = model.TenantSlug.Trim().ToLowerInvariant();
+            municipality.Province = model.Province.Trim();
+            municipality.ElectionDate = model.ElectionDate;
+            municipality.Description = model.Description?.Trim();
+
+            await MunicipalityRepo.UpdateAsync(municipality);
+
+            // Synchronize role name if municipality was renamed
+            var newRoleName = AdminRoles.ForMunicipality(municipality.Name);
+            if (oldRoleName != newRoleName)
+            {
+                var role = await RoleManager.FindByNameAsync(oldRoleName);
+                if (role != null)
+                {
+                    await RoleManager.SetRoleNameAsync(role, newRoleName);
+                    var updateResult = await RoleManager.UpdateAsync(role);
+                    if (!updateResult.Succeeded)
+                    {
+                        errorMessage = $"Failed to synchronize role name: {string.Join(", ", updateResult.Errors.Select(e => e.Description))}";
+                        isSubmitting = false;
+                        return;
+                    }
+                }
+            }
+
+            Navigation.NavigateTo("municipalities");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error updating municipality: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+}

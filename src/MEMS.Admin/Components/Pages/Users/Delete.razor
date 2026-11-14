@@ -1,0 +1,110 @@
+@page "/users/delete/{id}"
+@attribute [Authorize(Roles = AdminRoles.SuperAdmin)]
+@inject UserManager<ApplicationUser> UserManager
+@inject TenantAuthorizationService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Delete Administrator - MEMS Admin</PageTitle>
+
+<div class="container-fluid" style="max-width: 600px;">
+    <div class="mb-4">
+        <a href="users" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Administrators</a>
+        <h2 class="fw-bold mb-1 text-danger">Delete Administrator</h2>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">
+            <strong>Error:</strong> @errorMessage
+        </div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else if (user == null)
+    {
+        <div class="alert alert-warning">User not found.</div>
+    }
+    else
+    {
+        <div class="card shadow-sm border-danger">
+            <div class="card-header bg-danger text-white fw-bold">
+                Confirm Account Removal
+            </div>
+            <div class="card-body p-4">
+                <p>Are you sure you want to delete administrator <strong>@user.UserName</strong>?</p>
+
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    <a href="users" class="btn btn-secondary">Cancel</a>
+                    <button type="button" class="btn btn-danger" @onclick="HandleDelete" disabled="@isSubmitting">
+                        @if (isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                            <span>Deleting...</span>
+                        }
+                        else
+                        {
+                            <span>Delete User</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string Id { get; set; } = string.Empty;
+
+    private ApplicationUser? user;
+    private string? errorMessage;
+    private bool isLoading = true;
+    private bool isSubmitting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        user = await UserManager.FindByIdAsync(Id);
+        isLoading = false;
+    }
+
+    private async Task HandleDelete()
+    {
+        if (user == null) return;
+        isSubmitting = true;
+        errorMessage = null;
+
+        try
+        {
+            var currentUser = await AuthService.GetCurrentApplicationUserAsync();
+            if (currentUser != null && currentUser.Id == user.Id)
+            {
+                errorMessage = "You cannot delete your own account while currently logged in.";
+                isSubmitting = false;
+                return;
+            }
+
+            var result = await UserManager.DeleteAsync(user);
+            if (!result.Succeeded)
+            {
+                errorMessage = string.Join("; ", result.Errors.Select(e => e.Description));
+                isSubmitting = false;
+                return;
+            }
+
+            Navigation.NavigateTo("users");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An unexpected error occurred: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+}

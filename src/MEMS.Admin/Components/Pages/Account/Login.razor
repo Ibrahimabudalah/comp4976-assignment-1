@@ -1,0 +1,70 @@
+@page "/login"
+@attribute [AllowAnonymous]
+@inject NavigationManager Navigation
+
+<PageTitle>Admin Login - MEMS</PageTitle>
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-5 col-lg-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-primary text-white text-center py-3">
+                    <h4 class="mb-0 fw-bold">MEMS Administration</h4>
+                    <small>Sign in to manage elections</small>
+                </div>
+                <div class="card-body p-4">
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger py-2 small mb-3">
+                            @errorMessage
+                        </div>
+                    }
+
+                    <form action="/account/login?returnUrl=@Uri.EscapeDataString(returnUrl)" method="post">
+                        <AntiforgeryToken />
+
+                        <div class="mb-3">
+                            <label for="username" class="form-label fw-semibold">Username</label>
+                            <input type="text" id="username" name="UserName" class="form-control" placeholder="super, burnabyadmin, etc." required autofocus />
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="password" class="form-label fw-semibold">Password</label>
+                            <input type="password" id="password" name="Password" class="form-control" placeholder="Enter password" required />
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
+                            Sign In
+                        </button>
+                    </form>
+
+                    <div class="mt-4 pt-3 border-top text-muted small">
+                        <strong>Default test credentials:</strong><br />
+                        Super Admin: <code>super</code> / <code>P@@$$w0rd</code><br />
+                        Burnaby Admin: <code>burnabyadmin</code> / <code>P@@$$w0rd</code><br />
+                        Surrey Admin: <code>surreyadmin</code> / <code>P@@$$w0rd</code><br />
+                        Richmond Admin: <code>richmondadmin</code> / <code>P@@$$w0rd</code>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery]
+    private string returnUrl { get; set; } = "/";
+
+    [SupplyParameterFromQuery]
+    private string? error { get; set; }
+
+    private string? errorMessage;
+
+    protected override void OnInitialized()
+    {
+        if (!string.IsNullOrEmpty(error))
+        {
+            errorMessage = error;
+        }
+    }
+}

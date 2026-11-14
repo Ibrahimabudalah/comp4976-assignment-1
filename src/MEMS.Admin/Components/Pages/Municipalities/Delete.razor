@@ -1,0 +1,137 @@
+@page "/municipalities/delete/{id:int}"
+@attribute [Authorize(Roles = AdminRoles.SuperAdmin)]
+@inject IMunicipalityRepository MunicipalityRepo
+@inject RoleManager<IdentityRole> RoleManager
+@inject ImageUploadService ImageUploadService
+@inject NavigationManager Navigation
+
+<PageTitle>Delete Municipality - MEMS Admin</PageTitle>
+
+<div class="container-fluid" style="max-width: 700px;">
+    <div class="mb-4">
+        <a href="municipalities" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Municipalities</a>
+        <h2 class="fw-bold mb-1 text-danger">Delete Municipality Tenant</h2>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">
+            <strong>Cannot Delete:</strong> @errorMessage
+        </div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else if (municipality == null)
+    {
+        <div class="alert alert-warning">Municipality not found.</div>
+    }
+    else
+    {
+        <div class="card shadow-sm border-danger">
+            <div class="card-header bg-danger text-white fw-bold">
+                Confirm Municipality Deletion
+            </div>
+            <div class="card-body p-4">
+                <p>Are you sure you want to permanently delete <strong>@municipality.Name</strong> (<code>/@municipality.TenantSlug</code>)?</p>
+
+                @if ((municipality.Positions?.Count ?? 0) > 0 || (municipality.Candidates?.Count ?? 0) > 0 || (municipality.Users?.Count ?? 0) > 0)
+                {
+                    <div class="alert alert-warning">
+                        <strong>Integrity Protection:</strong> This municipality currently has:
+                        <ul class="mb-0 mt-2">
+                            <li>@(municipality.Positions?.Count ?? 0) Position(s)</li>
+                            <li>@(municipality.Candidates?.Count ?? 0) Candidate(s)</li>
+                            <li>@(municipality.Users?.Count ?? 0) Assigned Administrator(s)</li>
+                        </ul>
+                        <div class="mt-2 text-danger fw-semibold">
+                            You must remove or reassign these items before this municipality can be deleted.
+                        </div>
+                    </div>
+                }
+
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    <a href="municipalities" class="btn btn-secondary">Cancel</a>
+                    <button type="button" class="btn btn-danger" @onclick="HandleDelete"
+                            disabled="@(isSubmitting || (municipality.Positions?.Count ?? 0) > 0 || (municipality.Candidates?.Count ?? 0) > 0)">
+                        @if (isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                            <span>Deleting...</span>
+                        }
+                        else
+                        {
+                            <span>Yes, Delete Municipality</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Municipality? municipality;
+    private string? errorMessage;
+    private bool isLoading = true;
+    private bool isSubmitting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        municipality = await MunicipalityRepo.GetByIdAsync(Id);
+        isLoading = false;
+    }
+
+    private async Task HandleDelete()
+    {
+        if (municipality == null) return;
+        isSubmitting = true;
+        errorMessage = null;
+
+        try
+        {
+            var logoName = municipality.LogoFileName;
+            var roleName = AdminRoles.ForMunicipality(municipality.Name);
+
+            var deleted = await MunicipalityRepo.DeleteAsync(Id);
+            if (deleted)
+            {
+                if (!string.IsNullOrEmpty(logoName))
+                {
+                    ImageUploadService.DeleteImage(logoName, "logos");
+                }
+
+                var role = await RoleManager.FindByNameAsync(roleName);
+                if (role != null)
+                {
+                    var roleResult = await RoleManager.DeleteAsync(role);
+                    if (!roleResult.Succeeded)
+                    {
+                        // Log warning but proceed since municipality was deleted
+                    }
+                }
+
+                Navigation.NavigateTo("municipalities");
+            }
+        }
+        catch (InvalidOperationException ex)
+        {
+            errorMessage = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An unexpected error occurred: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+}

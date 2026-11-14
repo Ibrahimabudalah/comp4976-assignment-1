@@ -1,0 +1,99 @@
+@page "/municipalities/details/{id:int}"
+@attribute [Authorize(Roles = AdminRoles.SuperAdmin)]
+@inject IMunicipalityRepository MunicipalityRepo
+@inject NavigationManager Navigation
+
+<PageTitle>Municipality Details - MEMS Admin</PageTitle>
+
+<div class="container-fluid" style="max-width: 900px;">
+    <div class="mb-4">
+        <a href="municipalities" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Municipalities</a>
+        <h2 class="fw-bold mb-1">Municipality Details</h2>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else if (municipality == null)
+    {
+        <div class="alert alert-warning">Municipality not found.</div>
+    }
+    else
+    {
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body p-4">
+                <div class="d-flex align-items-center gap-4 mb-4">
+                    @if (!string.IsNullOrEmpty(municipality.LogoFileName))
+                    {
+                        <img src="uploads/logos/@municipality.LogoFileName" alt="@municipality.Name" class="rounded border p-2 bg-white" style="width: 90px; height: 90px; object-fit: contain;" />
+                    }
+                    else
+                    {
+                        <div class="bg-secondary text-white rounded d-flex align-items-center justify-content-center" style="width: 90px; height: 90px; font-size: 2rem;">
+                            🏛️
+                        </div>
+                    }
+
+                    <div>
+                        <h3 class="fw-bold mb-1">@municipality.Name</h3>
+                        <p class="text-muted mb-0">
+                            Public URL: <span class="badge bg-light text-dark border font-monospace">/@municipality.TenantSlug</span> &middot; Province: @municipality.Province
+                        </p>
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <div class="p-3 bg-light rounded border">
+                            <small class="text-muted text-uppercase fw-semibold">Next Municipal Election</small>
+                            <h5 class="fw-bold mb-0">@municipality.ElectionDate.ToString("MMMM d, yyyy")</h5>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded border text-center">
+                            <small class="text-muted text-uppercase fw-semibold">Positions</small>
+                            <h5 class="fw-bold mb-0 text-primary">@(municipality.Positions?.Count ?? 0)</h5>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded border text-center">
+                            <small class="text-muted text-uppercase fw-semibold">Candidates</small>
+                            <h5 class="fw-bold mb-0 text-info">@(municipality.Candidates?.Count ?? 0)</h5>
+                        </div>
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(municipality.Description))
+                {
+                    <div class="mb-4">
+                        <h6 class="fw-bold">Description</h6>
+                        <p class="text-muted">@municipality.Description</p>
+                    </div>
+                }
+
+                <div class="d-flex gap-2">
+                    <a href="municipalities/edit/@municipality.MunicipalityId" class="btn btn-primary">Edit Municipality</a>
+                    <a href="positions" class="btn btn-outline-primary">View Positions</a>
+                    <a href="candidates" class="btn btn-outline-info">View Candidates</a>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Municipality? municipality;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        municipality = await MunicipalityRepo.GetByIdAsync(Id);
+        isLoading = false;
+    }
+}

@@ -1,0 +1,248 @@
+@page "/candidates"
+@attribute [Authorize]
+@inject ICandidateRepository CandidateRepo
+@inject IMunicipalityRepository MunicipalityRepo
+@inject IPositionRepository PositionRepo
+@inject TenantAuthorizationService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Candidates - MEMS Admin</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">Election Candidates</h2>
+            @if (isSuperAdmin)
+            {
+                <span class="text-muted">Manage registered candidates across all municipal tenants.</span>
+            }
+            else if (assignedMunicipality != null)
+            {
+                <span class="text-primary fw-semibold">Tenant: @assignedMunicipality.Name</span>
+            }
+        </div>
+        <a href="candidates/create" class="btn btn-info text-white">
+            + New Candidate
+        </a>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-info" role="status"></div>
+        </div>
+    }
+    else
+    {
+        <!-- Filter Bar -->
+        <div class="card p-3 shadow-sm border-0 mb-4 bg-body-tertiary">
+            <div class="row g-2 align-items-center">
+                <div class="col-md-4">
+                    <input type="text" class="form-control form-control-sm" placeholder="Search by candidate name..."
+                           @bind="searchTerm" @bind:event="oninput" @bind:after="ApplyFilter" />
+                </div>
+
+                @if (isSuperAdmin)
+                {
+                    <div class="col-md-3">
+                        <select class="form-select form-select-sm" @onchange="OnMunicipalityChanged">
+                            <option value="">All Municipalities</option>
+                            @foreach (var m in municipalities)
+                            {
+                                <option value="@m.MunicipalityId">@m.Name</option>
+                            }
+                        </select>
+                    </div>
+                }
+
+                <div class="col-md-3">
+                    <select class="form-select form-select-sm" @onchange="OnPositionChanged">
+                        <option value="">All Positions</option>
+                        @foreach (var p in availablePositions)
+                        {
+                            <option value="@p.PositionId">@p.Name</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="col-md-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm w-100" @onclick="ClearFilters">
+                        Clear Filters
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        @if (!filteredCandidates.Any())
+        {
+            <div class="alert alert-info">
+                No candidates match the selected filters.
+            </div>
+        }
+        else
+        {
+            <div class="card shadow-sm border-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 60px;">Photo</th>
+                                <th>Candidate Name</th>
+                                <th>Position</th>
+                                <th>Municipality</th>
+                                <th>Contact Information</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var c in filteredCandidates)
+                            {
+                                <tr>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(c.PhotoFileName))
+                                        {
+                                            <img src="uploads/candidates/@c.PhotoFileName" alt="@c.Name" class="rounded-circle" style="width: 45px; height: 45px; object-fit: cover;" />
+                                        }
+                                        else
+                                        {
+                                            <div class="bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 45px; height: 45px; font-size: 0.8rem;">
+                                                👤
+                                            </div>
+                                        }
+                                    </td>
+                                    <td>
+                                        <strong>@c.Name</strong>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">@c.Position.Name</span>
+                                    </td>
+                                    <td>
+                                        <span>@c.Municipality.Name</span>
+                                        <span class="badge bg-light text-dark border ms-1 font-monospace">/@c.Municipality.TenantSlug</span>
+                                    </td>
+                                    <td class="small">
+                                        @if (!string.IsNullOrEmpty(c.Email))
+                                        {
+                                            <div>✉️ <a href="mailto:@c.Email" class="text-decoration-none">@c.Email</a></div>
+                                        }
+                                        @if (!string.IsNullOrEmpty(c.Website))
+                                        {
+                                            <div>🌐 <a href="@c.Website" target="_blank" class="text-decoration-none">Website</a></div>
+                                        }
+                                        @if (string.IsNullOrEmpty(c.Email) && string.IsNullOrEmpty(c.Website))
+                                        {
+                                            <span class="text-muted">None provided</span>
+                                        }
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="candidates/details/@c.CandidateId" class="btn btn-outline-secondary">Details</a>
+                                            <a href="candidates/edit/@c.CandidateId" class="btn btn-outline-primary">Edit</a>
+                                            <a href="candidates/delete/@c.CandidateId" class="btn btn-outline-danger">Delete</a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private List<Candidate> allCandidates = new();
+    private List<Candidate> filteredCandidates = new();
+    private List<Municipality> municipalities = new();
+    private List<Position> availablePositions = new();
+    private Municipality? assignedMunicipality;
+    private int? filterMunicipalityId;
+    private int? filterPositionId;
+    private string searchTerm = string.Empty;
+    private bool isSuperAdmin = false;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isSuperAdmin = await AuthService.IsSuperAdminAsync();
+        var assignedId = await AuthService.GetAssignedMunicipalityIdAsync();
+
+        if (isSuperAdmin)
+        {
+            municipalities = await MunicipalityRepo.GetAllAsync();
+            availablePositions = await PositionRepo.GetAllAsync();
+            allCandidates = await CandidateRepo.GetAllAsync();
+        }
+        else if (assignedId.HasValue)
+        {
+            filterMunicipalityId = assignedId.Value;
+            assignedMunicipality = await MunicipalityRepo.GetByIdAsync(assignedId.Value);
+            availablePositions = await PositionRepo.GetAllAsync(assignedId.Value);
+            allCandidates = await CandidateRepo.GetAllAsync(assignedId.Value);
+        }
+
+        ApplyFilter();
+        isLoading = false;
+    }
+
+    private void ApplyFilter()
+    {
+        var query = allCandidates.AsEnumerable();
+
+        if (filterMunicipalityId.HasValue)
+        {
+            query = query.Where(c => c.MunicipalityId == filterMunicipalityId.Value);
+        }
+
+        if (filterPositionId.HasValue)
+        {
+            query = query.Where(c => c.PositionId == filterPositionId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var term = searchTerm.Trim();
+            query = query.Where(c => c.Name.Contains(term, StringComparison.OrdinalIgnoreCase));
+        }
+
+        filteredCandidates = query.ToList();
+    }
+
+    private async Task OnMunicipalityChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int id))
+        {
+            filterMunicipalityId = id;
+            availablePositions = await PositionRepo.GetAllAsync(id);
+        }
+        else
+        {
+            filterMunicipalityId = null;
+            availablePositions = await PositionRepo.GetAllAsync();
+        }
+        filterPositionId = null;
+        ApplyFilter();
+    }
+
+    private void OnPositionChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int id))
+        {
+            filterPositionId = id;
+        }
+        else
+        {
+            filterPositionId = null;
+        }
+        ApplyFilter();
+    }
+
+    private void ClearFilters()
+    {
+        searchTerm = string.Empty;
+        if (isSuperAdmin) filterMunicipalityId = null;
+        filterPositionId = null;
+        ApplyFilter();
+    }
+}

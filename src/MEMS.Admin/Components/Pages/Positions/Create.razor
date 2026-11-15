@@ -1,0 +1,155 @@
+@page "/positions/create"
+@attribute [Authorize]
+@inject IPositionRepository PositionRepo
+@inject IMunicipalityRepository MunicipalityRepo
+@inject TenantAuthorizationService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Create Position - MEMS Admin</PageTitle>
+
+<div class="container-fluid" style="max-width: 700px;">
+    <div class="mb-4">
+        <a href="positions" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Positions</a>
+        <h2 class="fw-bold mb-1">Create Position</h2>
+        <span class="text-muted">Register an elected office (e.g. Mayor, Councillor, School Trustee).</span>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show">
+            <strong>Error:</strong> @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-4">
+            <EditForm Model="model" OnValidSubmit="HandleSubmit">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="text-danger mb-3" />
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Position Name *</label>
+                    <InputText @bind-Value="model.Name" class="form-control" placeholder="e.g. Councillor" />
+                    <ValidationMessage For="() => model.Name" class="text-danger small" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Available Seats *</label>
+                    <InputNumber @bind-Value="model.SeatsAvailable" class="form-control" min="1" max="100" />
+                    <small class="text-muted">Number of open seats for this office (e.g. 1 for Mayor, 6 for Council).</small>
+                    <ValidationMessage For="() => model.SeatsAvailable" class="text-danger small" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Municipality Tenant *</label>
+                    @if (isSuperAdmin)
+                    {
+                        <InputSelect @bind-Value="model.MunicipalityId" class="form-select">
+                            <option value="0">-- Select Municipality --</option>
+                            @foreach (var m in municipalities)
+                            {
+                                <option value="@m.MunicipalityId">@m.Name (/@m.TenantSlug)</option>
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="() => model.MunicipalityId" class="text-danger small" />
+                    }
+                    else
+                    {
+                        <input type="text" class="form-control" value="@(assignedMunicipality?.Name ?? "Assigned Municipality")" disabled />
+                        <small class="text-muted">Locked to your assigned tenant.</small>
+                    }
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    <a href="positions" class="btn btn-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-success px-4" disabled="@isSubmitting">
+                        @if (isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                            <span>Saving...</span>
+                        }
+                        else
+                        {
+                            <span>Create Position</span>
+                        }
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    private CreatePositionDto model = new();
+    private List<Municipality> municipalities = new();
+    private Municipality? assignedMunicipality;
+    private bool isSuperAdmin = false;
+    private string? errorMessage;
+    private bool isSubmitting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isSuperAdmin = await AuthService.IsSuperAdminAsync();
+        var assignedId = await AuthService.GetAssignedMunicipalityIdAsync();
+
+        if (isSuperAdmin)
+        {
+            municipalities = await MunicipalityRepo.GetAllAsync();
+        }
+        else if (assignedId.HasValue)
+        {
+            assignedMunicipality = await MunicipalityRepo.GetByIdAsync(assignedId.Value);
+            model.MunicipalityId = assignedId.Value;
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        isSubmitting = true;
+        errorMessage = null;
+
+        try
+        {
+            if (model.MunicipalityId <= 0)
+            {
+                errorMessage = "Please select a valid municipality tenant.";
+                isSubmitting = false;
+                return;
+            }
+
+            // Tenant authorization check
+            if (!await AuthService.CanManageMunicipalityAsync(model.MunicipalityId))
+            {
+                errorMessage = "You do not have permission to create positions for this municipality.";
+                isSubmitting = false;
+                return;
+            }
+
+            if (await PositionRepo.NameExistsInMunicipalityAsync(model.Name, model.MunicipalityId))
+            {
+                errorMessage = $"A position named '{model.Name}' already exists in this municipality.";
+                isSubmitting = false;
+                return;
+            }
+
+            var position = new Position
+            {
+                Name = model.Name.Trim(),
+                SeatsAvailable = model.SeatsAvailable,
+                MunicipalityId = model.MunicipalityId
+            };
+
+            await PositionRepo.CreateAsync(position);
+            Navigation.NavigateTo("positions");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An unexpected error occurred: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+}

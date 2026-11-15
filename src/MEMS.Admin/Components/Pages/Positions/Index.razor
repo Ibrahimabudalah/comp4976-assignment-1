@@ -1,0 +1,152 @@
+@page "/positions"
+@attribute [Authorize]
+@inject IPositionRepository PositionRepo
+@inject IMunicipalityRepository MunicipalityRepo
+@inject TenantAuthorizationService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Positions - MEMS Admin</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">Elected Positions</h2>
+            @if (isSuperAdmin)
+            {
+                <span class="text-muted">Manage council, mayoral, and trustee seats across all municipal tenants.</span>
+            }
+            else if (assignedMunicipality != null)
+            {
+                <span class="text-primary fw-semibold">Tenant: @assignedMunicipality.Name</span>
+            }
+        </div>
+        <a href="positions/create" class="btn btn-success">
+            + New Position
+        </a>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-success" role="status"></div>
+        </div>
+    }
+    else
+    {
+        @if (isSuperAdmin && municipalities.Any())
+        {
+            <div class="card p-3 shadow-sm border-0 mb-4 bg-body-tertiary">
+                <div class="row g-2 align-items-center">
+                    <div class="col-auto">
+                        <label class="fw-semibold small">Filter by Municipality:</label>
+                    </div>
+                    <div class="col-md-4">
+                        <select class="form-select form-select-sm" @onchange="OnMunicipalityFilterChanged">
+                            <option value="">All Municipalities</option>
+                            @foreach (var m in municipalities)
+                            {
+                                <option value="@m.MunicipalityId" selected="@(selectedMunicipalityId == m.MunicipalityId)">
+                                    @m.Name (/@m.TenantSlug)
+                                </option>
+                            }
+                        </select>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (!positions.Any())
+        {
+            <div class="alert alert-info">
+                No positions found. Click "+ New Position" to create an elected seat.
+            </div>
+        }
+        else
+        {
+            <div class="card shadow-sm border-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Position Name</th>
+                                <th>Municipality</th>
+                                <th>Available Seats</th>
+                                <th>Candidates Registered</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var p in positions)
+                            {
+                                <tr>
+                                    <td>
+                                        <strong>@p.Name</strong>
+                                    </td>
+                                    <td>
+                                        <span>@p.Municipality.Name</span>
+                                        <span class="badge bg-light text-dark border ms-1 font-monospace">/@p.Municipality.TenantSlug</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">@p.SeatsAvailable Seat(s)</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info text-dark">@(p.Candidates?.Count ?? 0)</span>
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="positions/details/@p.PositionId" class="btn btn-outline-secondary">Details</a>
+                                            <a href="positions/edit/@p.PositionId" class="btn btn-outline-primary">Edit</a>
+                                            <a href="positions/delete/@p.PositionId" class="btn btn-outline-danger">Delete</a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private List<Position> positions = new();
+    private List<Municipality> municipalities = new();
+    private Municipality? assignedMunicipality;
+    private int? selectedMunicipalityId;
+    private bool isSuperAdmin = false;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isSuperAdmin = await AuthService.IsSuperAdminAsync();
+        var assignedId = await AuthService.GetAssignedMunicipalityIdAsync();
+
+        if (isSuperAdmin)
+        {
+            municipalities = await MunicipalityRepo.GetAllAsync();
+            positions = await PositionRepo.GetAllAsync();
+        }
+        else if (assignedId.HasValue)
+        {
+            assignedMunicipality = await MunicipalityRepo.GetByIdAsync(assignedId.Value);
+            positions = await PositionRepo.GetAllAsync(assignedId.Value);
+        }
+
+        isLoading = false;
+    }
+
+    private async Task OnMunicipalityFilterChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int id))
+        {
+            selectedMunicipalityId = id;
+            positions = await PositionRepo.GetAllAsync(id);
+        }
+        else
+        {
+            selectedMunicipalityId = null;
+            positions = await PositionRepo.GetAllAsync();
+        }
+    }
+}

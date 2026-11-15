@@ -1,0 +1,116 @@
+@page "/candidates/details/{id:int}"
+@attribute [Authorize]
+@inject ICandidateRepository CandidateRepo
+@inject TenantAuthorizationService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Candidate Details - MEMS Admin</PageTitle>
+
+<div class="container-fluid" style="max-width: 800px;">
+    <div class="mb-4">
+        <a href="candidates" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Candidates</a>
+        <h2 class="fw-bold mb-1">Candidate Profile</h2>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else if (candidate == null)
+    {
+        <div class="alert alert-warning">Candidate not found or access denied.</div>
+    }
+    else
+    {
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body p-4">
+                <div class="d-flex flex-column flex-md-row align-items-md-center gap-4 mb-4 pb-3 border-bottom">
+                    @if (!string.IsNullOrEmpty(candidate.PhotoFileName))
+                    {
+                        <img src="uploads/candidates/@candidate.PhotoFileName" alt="@candidate.Name" class="rounded shadow-sm" style="width: 120px; height: 120px; object-fit: cover;" />
+                    }
+                    else
+                    {
+                        <div class="bg-secondary text-white rounded d-flex align-items-center justify-content-center shadow-sm" style="width: 120px; height: 120px; font-size: 3rem;">
+                            👤
+                        </div>
+                    }
+
+                    <div>
+                        <h3 class="fw-bold mb-1">@candidate.Name</h3>
+                        <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                            <span class="badge bg-primary fs-7">@candidate.Position.Name</span>
+                            <span class="badge bg-secondary fs-7">@candidate.Municipality.Name</span>
+                            <span class="badge bg-light text-dark border font-monospace">/@candidate.Municipality.TenantSlug</span>
+                        </div>
+                        <small class="text-muted">Registered: @candidate.DateCreated.ToString("MMMM d, yyyy")</small>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <h5 class="fw-bold">Platform / Biography</h5>
+                    <p class="text-muted" style="white-space: pre-line;">@candidate.Profile</p>
+                </div>
+
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <div class="p-3 bg-light rounded border">
+                            <small class="text-muted text-uppercase fw-semibold">Email Contact</small>
+                            <div>
+                                @if (!string.IsNullOrEmpty(candidate.Email))
+                                {
+                                    <a href="mailto:@candidate.Email" class="text-decoration-none">@candidate.Email</a>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">None provided</span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="p-3 bg-light rounded border">
+                            <small class="text-muted text-uppercase fw-semibold">Campaign Website</small>
+                            <div>
+                                @if (!string.IsNullOrEmpty(candidate.Website))
+                                {
+                                    <a href="@candidate.Website" target="_blank" class="text-decoration-none">@candidate.Website</a>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">None provided</span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <a href="candidates/edit/@candidate.CandidateId" class="btn btn-primary">Edit Candidate</a>
+                    <a href="candidates/delete/@candidate.CandidateId" class="btn btn-outline-danger">Delete Candidate</a>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Candidate? candidate;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        candidate = await CandidateRepo.GetByIdAsync(Id);
+        if (candidate != null && !await AuthService.CanManageMunicipalityAsync(candidate.MunicipalityId))
+        {
+            candidate = null;
+        }
+        isLoading = false;
+    }
+}

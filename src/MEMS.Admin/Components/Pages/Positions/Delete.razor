@@ -1,0 +1,114 @@
+@page "/positions/delete/{id:int}"
+@attribute [Authorize]
+@inject IPositionRepository PositionRepo
+@inject TenantAuthorizationService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Delete Position - MEMS Admin</PageTitle>
+
+<div class="container-fluid" style="max-width: 650px;">
+    <div class="mb-4">
+        <a href="positions" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Positions</a>
+        <h2 class="fw-bold mb-1 text-danger">Delete Position</h2>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">
+            <strong>Cannot Delete:</strong> @errorMessage
+        </div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else if (position == null)
+    {
+        <div class="alert alert-warning">Position not found or access denied.</div>
+    }
+    else
+    {
+        <div class="card shadow-sm border-danger">
+            <div class="card-header bg-danger text-white fw-bold">
+                Confirm Position Deletion
+            </div>
+            <div class="card-body p-4">
+                <p>Are you sure you want to permanently delete position <strong>@position.Name</strong> for <strong>@position.Municipality.Name</strong>?</p>
+
+                @if ((position.Candidates?.Count ?? 0) > 0)
+                {
+                    <div class="alert alert-warning">
+                        <strong>Integrity Protection:</strong> There are currently <strong>@(position.Candidates?.Count ?? 0) candidate(s)</strong> registered for this position. You must remove or reassign these candidates before this position can be deleted.
+                    </div>
+                }
+
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    <a href="positions" class="btn btn-secondary">Cancel</a>
+                    <button type="button" class="btn btn-danger" @onclick="HandleDelete"
+                            disabled="@(isSubmitting || (position.Candidates?.Count ?? 0) > 0)">
+                        @if (isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                            <span>Deleting...</span>
+                        }
+                        else
+                        {
+                            <span>Yes, Delete Position</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Position? position;
+    private string? errorMessage;
+    private bool isLoading = true;
+    private bool isSubmitting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        position = await PositionRepo.GetByIdAsync(Id);
+        if (position != null && !await AuthService.CanManageMunicipalityAsync(position.MunicipalityId))
+        {
+            position = null;
+        }
+        isLoading = false;
+    }
+
+    private async Task HandleDelete()
+    {
+        if (position == null) return;
+        isSubmitting = true;
+        errorMessage = null;
+
+        try
+        {
+            var deleted = await PositionRepo.DeleteAsync(Id);
+            if (deleted)
+            {
+                Navigation.NavigateTo("positions");
+            }
+        }
+        catch (InvalidOperationException ex)
+        {
+            errorMessage = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An unexpected error occurred: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+}

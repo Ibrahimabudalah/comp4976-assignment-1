@@ -1,0 +1,108 @@
+@page "/candidates/delete/{id:int}"
+@attribute [Authorize]
+@inject ICandidateRepository CandidateRepo
+@inject TenantAuthorizationService AuthService
+@inject ImageUploadService ImageUploadService
+@inject NavigationManager Navigation
+
+<PageTitle>Delete Candidate - MEMS Admin</PageTitle>
+
+<div class="container-fluid" style="max-width: 650px;">
+    <div class="mb-4">
+        <a href="candidates" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Candidates</a>
+        <h2 class="fw-bold mb-1 text-danger">Delete Candidate</h2>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">
+            <strong>Error:</strong> @errorMessage
+        </div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else if (candidate == null)
+    {
+        <div class="alert alert-warning">Candidate not found or access denied.</div>
+    }
+    else
+    {
+        <div class="card shadow-sm border-danger">
+            <div class="card-header bg-danger text-white fw-bold">
+                Confirm Candidate Deletion
+            </div>
+            <div class="card-body p-4">
+                <p>Are you sure you want to permanently delete candidate <strong>@candidate.Name</strong> standing for <strong>@candidate.Position.Name</strong> in <strong>@candidate.Municipality.Name</strong>?</p>
+
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    <a href="candidates" class="btn btn-secondary">Cancel</a>
+                    <button type="button" class="btn btn-danger" @onclick="HandleDelete" disabled="@isSubmitting">
+                        @if (isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                            <span>Deleting...</span>
+                        }
+                        else
+                        {
+                            <span>Yes, Delete Candidate</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Candidate? candidate;
+    private string? errorMessage;
+    private bool isLoading = true;
+    private bool isSubmitting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        candidate = await CandidateRepo.GetByIdAsync(Id);
+        if (candidate != null && !await AuthService.CanManageMunicipalityAsync(candidate.MunicipalityId))
+        {
+            candidate = null;
+        }
+        isLoading = false;
+    }
+
+    private async Task HandleDelete()
+    {
+        if (candidate == null) return;
+        isSubmitting = true;
+        errorMessage = null;
+
+        try
+        {
+            var photo = candidate.PhotoFileName;
+            var deleted = await CandidateRepo.DeleteAsync(Id);
+            if (deleted)
+            {
+                if (!string.IsNullOrEmpty(photo))
+                {
+                    ImageUploadService.DeleteImage(photo, "candidates");
+                }
+                Navigation.NavigateTo("candidates");
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An unexpected error occurred: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+}

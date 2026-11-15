@@ -1,0 +1,191 @@
+@page "/candidates/create"
+@attribute [Authorize]
+@inject ICandidateRepository CandidateRepo
+@inject IPositionRepository PositionRepo
+@inject IMunicipalityRepository MunicipalityRepo
+@inject TenantAuthorizationService AuthService
+@inject ImageUploadService ImageUploadService
+@inject NavigationManager Navigation
+
+<PageTitle>Create Candidate - MEMS Admin</PageTitle>
+
+<div class="container-fluid" style="max-width: 800px;">
+    <div class="mb-4">
+        <a href="candidates" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Candidates</a>
+        <h2 class="fw-bold mb-1">Register New Candidate</h2>
+        <span class="text-muted">Nominate a candidate standing for municipal election.</span>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show">
+            <strong>Error:</strong> @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-4">
+            <EditForm Model="model" OnValidSubmit="HandleSubmit">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="text-danger mb-3" />
+
+                <div class="row g-3">
+                    <div class="col-md-7">
+                        <label class="form-label fw-semibold">Candidate Full Name *</label>
+                        <InputText @bind-Value="model.Name" class="form-control" placeholder="e.g. Elena Vance" />
+                        <ValidationMessage For="() => model.Name" class="text-danger small" />
+                    </div>
+
+                    <div class="col-md-5">
+                        <label class="form-label fw-semibold">Position Contested *</label>
+                        <InputSelect @bind-Value="model.PositionId" class="form-select">
+                            <option value="0">-- Select Position --</option>
+                            @foreach (var p in availablePositions)
+                            {
+                                <option value="@p.PositionId">@p.Municipality.Name - @p.Name</option>
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="() => model.PositionId" class="text-danger small" />
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Candidate Biography / Platform * (Max 3000 chars)</label>
+                        <InputTextArea @bind-Value="model.Profile" class="form-control" rows="4" placeholder="Campaign priorities, experience, and community involvement..." />
+                        <ValidationMessage For="() => model.Profile" class="text-danger small" />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Email Address (Optional)</label>
+                        <InputText @bind-Value="model.Email" class="form-control" placeholder="name@campaign.ca" />
+                        <ValidationMessage For="() => model.Email" class="text-danger small" />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Campaign Website URL (Optional)</label>
+                        <InputText @bind-Value="model.Website" class="form-control" placeholder="https://candidate.ca" />
+                        <ValidationMessage For="() => model.Website" class="text-danger small" />
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Candidate Photograph (PNG, JPG, WebP - Max 2MB)</label>
+                        <InputFile OnChange="HandlePhotoSelected" class="form-control" accept=".jpg,.jpeg,.png,.webp" />
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    <a href="candidates" class="btn btn-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-info text-white px-4" disabled="@isSubmitting">
+                        @if (isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                            <span>Registering...</span>
+                        }
+                        else
+                        {
+                            <span>Register Candidate</span>
+                        }
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    private CreateCandidateDto model = new();
+    private List<Position> availablePositions = new();
+    private IBrowserFile? selectedPhotoFile;
+    private string? errorMessage;
+    private bool isSubmitting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var isSuperAdmin = await AuthService.IsSuperAdminAsync();
+        var assignedId = await AuthService.GetAssignedMunicipalityIdAsync();
+
+        if (isSuperAdmin)
+        {
+            availablePositions = await PositionRepo.GetAllAsync();
+        }
+        else if (assignedId.HasValue)
+        {
+            availablePositions = await PositionRepo.GetAllAsync(assignedId.Value);
+        }
+    }
+
+    private void HandlePhotoSelected(InputFileChangeEventArgs e)
+    {
+        selectedPhotoFile = e.File;
+    }
+
+    private async Task HandleSubmit()
+    {
+        isSubmitting = true;
+        errorMessage = null;
+
+        try
+        {
+            if (model.PositionId <= 0)
+            {
+                errorMessage = "Please select a valid position.";
+                isSubmitting = false;
+                return;
+            }
+
+            var position = await PositionRepo.GetByIdAsync(model.PositionId);
+            if (position == null)
+            {
+                errorMessage = "Selected position does not exist.";
+                isSubmitting = false;
+                return;
+            }
+
+            // Tenant authorization check
+            if (!await AuthService.CanManageMunicipalityAsync(position.MunicipalityId))
+            {
+                errorMessage = "You do not have permission to register candidates for this municipality.";
+                isSubmitting = false;
+                return;
+            }
+
+            string? photoFileName = null;
+            if (selectedPhotoFile != null)
+            {
+                try
+                {
+                    photoFileName = await ImageUploadService.SaveImageAsync(selectedPhotoFile, "candidates");
+                }
+                catch (ArgumentException ex)
+                {
+                    errorMessage = ex.Message;
+                    isSubmitting = false;
+                    return;
+                }
+            }
+
+            var candidate = new Candidate
+            {
+                Name = model.Name.Trim(),
+                Profile = model.Profile.Trim(),
+                PhotoFileName = photoFileName,
+                Website = model.Website?.Trim(),
+                Email = model.Email?.Trim(),
+                PositionId = model.PositionId,
+                MunicipalityId = position.MunicipalityId,
+                DateCreated = DateTime.UtcNow
+            };
+
+            await CandidateRepo.CreateAsync(candidate);
+            Navigation.NavigateTo("candidates");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An unexpected error occurred: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+}

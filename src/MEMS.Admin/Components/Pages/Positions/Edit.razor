@@ -1,0 +1,142 @@
+@page "/positions/edit/{id:int}"
+@attribute [Authorize]
+@inject IPositionRepository PositionRepo
+@inject IMunicipalityRepository MunicipalityRepo
+@inject TenantAuthorizationService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Edit Position - MEMS Admin</PageTitle>
+
+<div class="container-fluid" style="max-width: 700px;">
+    <div class="mb-4">
+        <a href="positions" class="btn btn-outline-secondary btn-sm mb-2">&larr; Back to Positions</a>
+        <h2 class="fw-bold mb-1">Edit Position</h2>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show">
+            <strong>Error:</strong> @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+        </div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else if (position == null)
+    {
+        <div class="alert alert-warning">Position not found or access denied.</div>
+    }
+    else
+    {
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-4">
+                <EditForm Model="model" OnValidSubmit="HandleSubmit">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary class="text-danger mb-3" />
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Municipality</label>
+                        <input type="text" class="form-control" value="@position.Municipality.Name" disabled />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Position Name *</label>
+                        <InputText @bind-Value="model.Name" class="form-control" />
+                        <ValidationMessage For="() => model.Name" class="text-danger small" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Available Seats *</label>
+                        <InputNumber @bind-Value="model.SeatsAvailable" class="form-control" min="1" max="100" />
+                        <ValidationMessage For="() => model.SeatsAvailable" class="text-danger small" />
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <a href="positions" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary px-4" disabled="@isSubmitting">
+                            @if (isSubmitting)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                                <span>Saving...</span>
+                            }
+                            else
+                            {
+                                <span>Save Changes</span>
+                            }
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Position? position;
+    private UpdatePositionDto model = new();
+    private string? errorMessage;
+    private bool isLoading = true;
+    private bool isSubmitting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        position = await PositionRepo.GetByIdAsync(Id);
+        if (position != null)
+        {
+            if (!await AuthService.CanManageMunicipalityAsync(position.MunicipalityId))
+            {
+                position = null; // Deny access
+            }
+            else
+            {
+                model = new UpdatePositionDto
+                {
+                    PositionId = position.PositionId,
+                    Name = position.Name,
+                    SeatsAvailable = position.SeatsAvailable,
+                    MunicipalityId = position.MunicipalityId
+                };
+            }
+        }
+        isLoading = false;
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (position == null) return;
+        isSubmitting = true;
+        errorMessage = null;
+
+        try
+        {
+            if (await PositionRepo.NameExistsInMunicipalityAsync(model.Name, position.MunicipalityId, Id))
+            {
+                errorMessage = $"A position named '{model.Name}' already exists in this municipality.";
+                isSubmitting = false;
+                return;
+            }
+
+            position.Name = model.Name.Trim();
+            position.SeatsAvailable = model.SeatsAvailable;
+
+            await PositionRepo.UpdateAsync(position);
+            Navigation.NavigateTo("positions");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error updating position: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+}

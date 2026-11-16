@@ -1,0 +1,60 @@
+@page "/{Slug}/positions"
+@inject MemsApiClient Api
+@inject TenantState Tenants
+@inject ILogger<Positions> Logger
+
+<TenantShell Slug="@Slug" Title="Positions" Context="tenant">
+    <h2 class="h4">Positions</h2>
+    @if (loading)
+    {
+        <div class="d-flex justify-content-center py-4"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>
+    }
+    else if (failed)
+    {
+        <ErrorAlert />
+    }
+    else if (positions.Count == 0)
+    {
+        <div class="alert alert-info">No positions have been added for @tenant.Name yet.</div>
+    }
+    else
+    {
+        <table class="table table-striped align-middle table-stack">
+            <thead><tr><th>Position</th><th>Seats</th><th>Candidates</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var p in positions)
+                {
+                    <tr>
+                        <td data-label="Position">@p.Name</td>
+                        <td data-label="Seats">@p.SeatsAvailable</td>
+                        <td data-label="Candidates">@p.CandidateCount</td>
+                        <td class="text-end">
+                            <a class="btn btn-outline-primary btn-sm" href="/@tenant.TenantSlug/candidates?position=@Uri.EscapeDataString(p.Name)">View candidates</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</TenantShell>
+
+@code {
+    [Parameter] public string Slug { get; set; } = "";
+    private List<PositionDto> positions = [];
+    private bool loading = true, failed;
+    private string? loadedSlug;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (string.Equals(loadedSlug, Slug, StringComparison.OrdinalIgnoreCase)) return;
+        loadedSlug = Slug;
+        loading = true; failed = false;
+        try
+        {
+            // Unknown slug: TenantShell shows "not found", so skip the data call.
+            if (await Tenants.GetAsync(Slug) != null) positions = await Api.GetPositionsAsync(Slug);
+        }
+        catch (Exception ex) { Logger.LogError(ex, "Failed to load positions for {Slug}", Slug); failed = true; }
+        loading = false;
+    }
+}

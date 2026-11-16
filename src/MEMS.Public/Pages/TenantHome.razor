@@ -5,6 +5,12 @@
     {
         <p class="lead">@tenant.Description</p>
     }
+    <p class="text-body-secondary">@tenant.PositionCount positions · @tenant.CandidateCount candidates</p>
+    <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-primary" href="/@tenant.TenantSlug/positions">View positions</a>
+        <a class="btn btn-primary" href="/@tenant.TenantSlug/candidates">Browse candidates</a>
+        <a class="btn btn-outline-primary" href="/@tenant.TenantSlug/guide">My voting guide</a>
+    </div>
 </TenantShell>
 
 @code {

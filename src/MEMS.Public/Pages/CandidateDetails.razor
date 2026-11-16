@@ -1,0 +1,73 @@
+@page "/{Slug}/candidates/{Id:int}"
+@inject MemsApiClient Api
+@inject TenantState Tenants
+@inject ImageUrls Images
+@inject ILogger<CandidateDetails> Logger
+
+<TenantShell Slug="@Slug" Title="@(candidate?.Name ?? "Candidate")" Context="tenant">
+    <a class="btn btn-outline-secondary btn-sm mb-3 no-print" href="/@tenant.TenantSlug/candidates">&larr; Back to candidates</a>
+    @if (loading)
+    {
+        <div class="d-flex justify-content-center py-4"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>
+    }
+    else if (failed)
+    {
+        <ErrorAlert />
+    }
+    else if (candidate == null)
+    {
+        @* The API answers 404 for a candidate that belongs to another tenant, so this also covers cross-tenant URLs. *@
+        <div class="alert alert-warning">Candidate not found in @tenant.Name.</div>
+    }
+    else
+    {
+        <div class="row g-4">
+            <div class="col-12 col-md-4">
+                <img src="@Images.Photo(candidate.PhotoFileName)" alt="Photo of @candidate.Name" class="candidate-photo-lg rounded border" />
+            </div>
+            <div class="col-12 col-md-8">
+                <h2 class="h3 mb-1">@candidate.Name</h2>
+                <p class="text-body-secondary">
+                    <a href="/@tenant.TenantSlug/candidates?position=@Uri.EscapeDataString(candidate.PositionName)">@candidate.PositionName</a>
+                </p>
+                <p style="white-space: pre-line">@candidate.Profile</p>
+                <ul class="list-unstyled">
+                    @if (SafeWebsite is { } site)
+                    {
+                        <li>Website: <a href="@site" target="_blank" rel="noopener noreferrer">@site</a></li>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(candidate.Email))
+                    {
+                        <li>Email: <a href="mailto:@candidate.Email">@candidate.Email</a></li>
+                    }
+                </ul>
+            </div>
+        </div>
+    }
+</TenantShell>
+
+@code {
+    [Parameter] public string Slug { get; set; } = "";
+    [Parameter] public int Id { get; set; }
+    private CandidateDto? candidate;
+    private bool loading = true, failed;
+    private string? loadedKey;
+
+    // Only http(s) links are rendered, so a bad stored value (e.g. "javascript:...") never becomes a link.
+    private string? SafeWebsite =>
+        Uri.TryCreate(candidate?.Website, UriKind.Absolute, out var u) && (u.Scheme == Uri.UriSchemeHttp || u.Scheme == Uri.UriSchemeHttps) ? u.AbsoluteUri : null;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var key = $"{Slug.ToLowerInvariant()}|{Id}";
+        if (key == loadedKey) return;
+        loadedKey = key;
+        loading = true; failed = false; candidate = null;
+        try
+        {
+            if (await Tenants.GetAsync(Slug) != null) candidate = await Api.GetCandidateAsync(Slug, Id);
+        }
+        catch (Exception ex) { Logger.LogError(ex, "Failed to load candidate {Id} for {Slug}", Id, Slug); failed = true; }
+        loading = false;
+    }
+}

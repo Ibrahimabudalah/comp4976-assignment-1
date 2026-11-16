@@ -1,0 +1,114 @@
+@page "/{Slug}/candidates"
+@inject MemsApiClient Api
+@inject TenantState Tenants
+@inject NavigationManager Nav
+@inject ILogger<Candidates> Logger
+
+<TenantShell Slug="@Slug" Title="Candidates" Context="tenant">
+    <h2 class="h4">Candidates</h2>
+
+    @* Search and filter live in the query string so results can be bookmarked or shared. *@
+    <form class="row g-2 mb-3 no-print" @onsubmit="ApplyFilters">
+        <div class="col-12 col-md-5">
+            <label class="form-label visually-hidden" for="search">Search by name</label>
+            <input id="search" class="form-control" placeholder="Search by name" maxlength="150" @bind="searchInput" />
+        </div>
+        <div class="col-12 col-md-4">
+            <label class="form-label visually-hidden" for="position">Position</label>
+            <select id="position" class="form-select" @bind="positionInput">
+                <option value="">All positions</option>
+                @foreach (var name in positionNames)
+                {
+                    <option value="@name">@name</option>
+                }
+            </select>
+        </div>
+        <div class="col-6 col-md-auto"><button class="btn btn-primary w-100" type="submit">Search</button></div>
+        <div class="col-6 col-md-auto"><a class="btn btn-outline-secondary w-100" href="/@tenant.TenantSlug/candidates">Clear</a></div>
+    </form>
+
+    @if (loading)
+    {
+        <div class="d-flex justify-content-center py-4"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>
+    }
+    else if (failed)
+    {
+        <ErrorAlert />
+    }
+    else if (candidates.Count == 0)
+    {
+        <div class="alert alert-info">No candidates match your search.</div>
+    }
+    else
+    {
+        <div class="d-flex justify-content-between align-items-center mb-2 no-print">
+            <span class="text-body-secondary">@candidates.Count candidate(s)</span>
+            <button class="btn btn-outline-primary" disabled="@(compareIds.Count < 2)" @onclick="GoCompare">
+                Compare selected (@compareIds.Count)
+            </button>
+        </div>
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-3">
+            @foreach (var c in candidates)
+            {
+                <div class="col">
+                    <CandidateCard Candidate="c" Selected="compareIds.Contains(c.CandidateId)"
+                                   CompareDisabled="compareIds.Count >= 3"
+                                   OnCompareChanged="on => ToggleCompare(c.CandidateId, on)" />
+                </div>
+            }
+        </div>
+        <p class="small text-body-secondary mt-2 no-print">Tick 2 or 3 candidates to compare them side by side.</p>
+    }
+</TenantShell>
+
+@code {
+    [Parameter] public string Slug { get; set; } = "";
+    [SupplyParameterFromQuery(Name = "search")] public string? Search { get; set; }
+    [SupplyParameterFromQuery(Name = "position")] public string? Position { get; set; }
+
+    private List<CandidateDto> candidates = [];
+    private List<string> positionNames = [];
+    private readonly HashSet<int> compareIds = [];
+    private string searchInput = "", positionInput = "";
+    private bool loading = true, failed;
+    private string? loadedKey;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Reload only when the tenant or the filters changed.
+        var key = $"{Slug.ToLowerInvariant()}|{Search}|{Position}";
+        if (key == loadedKey) return;
+        var tenantChanged = loadedKey?.Split('|')[0] != Slug.ToLowerInvariant();
+        loadedKey = key;
+        searchInput = Search ?? ""; positionInput = Position ?? "";
+        loading = true; failed = false;
+        if (tenantChanged) compareIds.Clear();
+        try
+        {
+            if (await Tenants.GetAsync(Slug) != null)
+            {
+                if (tenantChanged || positionNames.Count == 0)
+                    positionNames = (await Api.GetPositionsAsync(Slug)).Select(p => p.Name).Distinct().Order().ToList();
+                candidates = await Api.GetCandidatesAsync(Slug, Search, Position);
+            }
+        }
+        catch (Exception ex) { Logger.LogError(ex, "Failed to load candidates for {Slug}", Slug); failed = true; }
+        loading = false;
+    }
+
+    private void ApplyFilters()
+        => Nav.NavigateTo(Nav.GetUriWithQueryParameters(new Dictionary<string, object?>
+        {
+            ["search"] = string.IsNullOrWhiteSpace(searchInput) ? null : searchInput.Trim(),
+            ["position"] = string.IsNullOrEmpty(positionInput) ? null : positionInput
+        }));
+
+    private void ToggleCompare(int id, bool on)
+    {
+        if (on && compareIds.Count < 3) compareIds.Add(id); else if (!on) compareIds.Remove(id);
+    }
+
+    private void GoCompare()
+        => Nav.NavigateTo(Nav.GetUriWithQueryParameters($"/{Slug.ToLowerInvariant()}/compare",
+            new Dictionary<string, object?> { ["ids"] = compareIds.ToArray() }));
+}

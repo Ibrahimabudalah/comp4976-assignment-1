@@ -1,22 +1,59 @@
 @page "/"
 @inject MemsApiClient Api
+@inject ImageUrls Images
+@inject ILogger<Home> Logger
 
-<PageTitle>MEMS</PageTitle>
+<PageTitle>MEMS – Municipal Elections</PageTitle>
 
-<h1>Municipalities</h1>
+<h1 class="h2">Choose your municipality</h1>
+<p class="text-body-secondary">Each municipality has its own positions, candidates and voting guide.</p>
 
-@if (names == null)
+@if (loading)
 {
-    <p>Loading...</p>
+    <div class="d-flex justify-content-center py-5"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>
+}
+else if (failed)
+{
+    <ErrorAlert />
+}
+else if (municipalities.Count == 0)
+{
+    <div class="alert alert-info">No municipalities are available yet.</div>
 }
 else
 {
-    <ul>@foreach (var n in names) { <li>@n</li> }</ul>
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+        @foreach (var m in municipalities)
+        {
+            <div class="col">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center gap-3 mb-2">
+                            <img src="@Images.Logo(m.LogoFileName)" alt="@m.Name logo" class="tenant-logo" />
+                            <div>
+                                <h2 class="h5 mb-0">@m.Name</h2>
+                                <div class="small text-body-secondary">Election day: @m.ElectionDate.ToString("MMMM d, yyyy")</div>
+                            </div>
+                        </div>
+                        <p class="small mb-0">@m.PositionCount positions · @m.CandidateCount candidates</p>
+                    </div>
+                    <div class="card-footer bg-transparent border-0 pt-0">
+                        <a class="btn btn-primary" href="/@m.TenantSlug">View @m.Name</a>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
 }
 
 @code {
-    // temporary Phase 1 connectivity check; replaced by the municipality picker in Phase 3
-    private List<string>? names;
+    private List<MunicipalityDto> municipalities = [];
+    private bool loading = true, failed;
+
     protected override async Task OnInitializedAsync()
-        => names = (await Api.GetMunicipalitiesAsync()).Select(m => m.Name).ToList();
+    {
+        try { municipalities = await Api.GetMunicipalitiesAsync(); }
+        catch (Exception ex) { Logger.LogError(ex, "Failed to load municipalities"); failed = true; }
+        loading = false;
+    }
 }

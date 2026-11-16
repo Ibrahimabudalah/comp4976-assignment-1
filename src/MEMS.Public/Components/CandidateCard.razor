@@ -1,0 +1,29 @@
+@inject ImageUrls Images
+
+<div class="card h-100">
+    <img src="@Images.Photo(Candidate.PhotoFileName)" alt="Photo of @Candidate.Name" class="card-img-top candidate-photo" loading="lazy" />
+    <div class="card-body d-flex flex-column">
+        <h2 class="h5 card-title mb-1">@Candidate.Name</h2>
+        <div class="text-body-secondary mb-2">@Candidate.PositionName</div>
+        <p class="card-text small">@Snippet</p>
+        <div class="mt-auto d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <a class="btn btn-primary btn-sm" href="/@Candidate.TenantSlug/candidates/@Candidate.CandidateId">View profile</a>
+            <div class="form-check no-print">
+                <input class="form-check-input" type="checkbox" id="cmp-@Candidate.CandidateId"
+                       checked="@Selected" disabled="@(!Selected && CompareDisabled)"
+                       @onchange="e => OnCompareChanged.InvokeAsync((bool)e.Value!)" />
+                <label class="form-check-label small" for="cmp-@Candidate.CandidateId">Compare</label>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public CandidateDto Candidate { get; set; } = null!;
+    [Parameter] public bool Selected { get; set; }
+    // true once 3 candidates are ticked, so a 4th can't be added
+    [Parameter] public bool CompareDisabled { get; set; }
+    [Parameter] public EventCallback<bool> OnCompareChanged { get; set; }
+
+    private string Snippet => Candidate.Profile.Length <= 120 ? Candidate.Profile : Candidate.Profile[..120].TrimEnd() + "…";
+}

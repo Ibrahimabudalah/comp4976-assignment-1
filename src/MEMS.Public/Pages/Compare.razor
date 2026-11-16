@@ -1,0 +1,90 @@
+@page "/{Slug}/compare"
+@inject MemsApiClient Api
+@inject TenantState Tenants
+@inject ImageUrls Images
+@inject ILogger<Compare> Logger
+
+<TenantShell Slug="@Slug" Title="Compare" Context="tenant">
+    <h2 class="h4">Compare candidates</h2>
+    @if (loading)
+    {
+        <div class="d-flex justify-content-center py-4"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>
+    }
+    else if (failed)
+    {
+        <ErrorAlert />
+    }
+    else if (selected == null)
+    {
+        <div class="alert alert-info">
+            Choose 2 or 3 candidates from @tenant.Name to compare.
+            <a href="/@tenant.TenantSlug/candidates" class="alert-link">Back to candidates</a>
+        </div>
+    }
+    else
+    {
+        <div class="row g-3 @(selected.Count == 2 ? "row-cols-md-2" : "row-cols-md-3") row-cols-1">
+            @foreach (var c in selected)
+            {
+                <div class="col">
+                    <div class="card h-100">
+                        <img src="@Images.Photo(c.PhotoFileName)" alt="Photo of @c.Name" class="card-img-top candidate-photo" />
+                        <div class="card-body">
+                            <h3 class="h5 mb-1">@c.Name</h3>
+                            <div class="text-body-secondary mb-2">@c.PositionName</div>
+                            <p style="white-space: pre-line">@c.Profile</p>
+                            <ul class="list-unstyled small mb-0">
+                                @if (SafeLink.Http(c.Website) is { } site)
+                                {
+                                    <li>Website: <a href="@site" target="_blank" rel="noopener noreferrer">@site</a></li>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(c.Email))
+                                {
+                                    <li>Email: <a href="mailto:@c.Email">@c.Email</a></li>
+                                }
+                            </ul>
+                        </div>
+                        <div class="card-footer bg-transparent no-print">
+                            <a class="btn btn-outline-primary btn-sm" href="/@tenant.TenantSlug/candidates/@c.CandidateId">View profile</a>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+        <a href="/@tenant.TenantSlug/candidates" class="btn btn-outline-secondary mt-3 no-print">&larr; Back to candidates</a>
+    }
+</TenantShell>
+
+@code {
+    [Parameter] public string Slug { get; set; } = "";
+    // Read as text and parsed below: the built-in int[] binding renders a blank page when a value isn't a number.
+    [SupplyParameterFromQuery(Name = "ids")] public string[]? Ids { get; set; }
+
+    private List<CandidateDto>? selected;   // null = not a valid 2-3 candidate comparison
+    private bool loading = true, failed;
+    private string? loadedKey;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var raw = (Ids ?? []).Distinct().ToList();
+        var ids = raw.Select(v => int.TryParse(v, out var n) ? n : (int?)null).ToList();
+        var valid = ids.All(n => n.HasValue);   // any non-numeric id means the comparison is refused
+        var key = $"{Slug.ToLowerInvariant()}|{string.Join(',', raw)}";
+        if (key == loadedKey) return;
+        loadedKey = key;
+        loading = true; failed = false; selected = null;
+        try
+        {
+            if (valid && raw.Count is >= 2 and <= 3 && await Tenants.GetAsync(Slug) != null)
+            {
+                // Match inside this tenant's own list, in the URL's order. An ID from another
+                // tenant (or a missing one) won't match, so the comparison is refused.
+                var byId = (await Api.GetCandidatesAsync(Slug)).ToDictionary(c => c.CandidateId);
+                var wanted = ids.Select(n => n!.Value).Distinct().ToList();
+                if (wanted.Count >= 2 && wanted.All(byId.ContainsKey)) selected = wanted.Select(i => byId[i]).ToList();
+            }
+        }
+        catch (Exception ex) { Logger.LogError(ex, "Failed to load comparison for {Slug}", Slug); failed = true; }
+        loading = false;
+    }
+}

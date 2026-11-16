@@ -53,9 +53,7 @@
     private bool loading = true, failed;
     private string? loadedKey;
 
-    // Only http(s) links are rendered, so a bad stored value (e.g. "javascript:...") never becomes a link.
-    private string? SafeWebsite =>
-        Uri.TryCreate(candidate?.Website, UriKind.Absolute, out var u) && (u.Scheme == Uri.UriSchemeHttp || u.Scheme == Uri.UriSchemeHttps) ? u.AbsoluteUri : null;
+    private string? SafeWebsite => SafeLink.Http(candidate?.Website);
 
     protected override async Task OnParametersSetAsync()
     {

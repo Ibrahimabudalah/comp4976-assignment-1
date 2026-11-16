@@ -14,5 +14,6 @@ builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri(apiBase) 
 builder.Services.AddBlazoredSessionStorage();
 builder.Services.AddScoped<MemsApiClient>();
 builder.Services.AddScoped<ImageUrls>();
+builder.Services.AddScoped<TenantState>();
 
 await builder.Build().RunAsync();

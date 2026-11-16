@@ -1,0 +1,8 @@
+@* Friendly error box. Never pass exception text in here: spec says sensitive details must not reach users. *@
+<div class="alert alert-danger" role="alert">
+    @(Message ?? "Something went wrong loading this page. Please try again.")
+</div>
+
+@code {
+    [Parameter] public string? Message { get; set; }
+}

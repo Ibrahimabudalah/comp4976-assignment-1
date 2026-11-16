@@ -1,0 +1,84 @@
+@inject TenantState Tenants
+@inject ImageUrls Images
+@inject ILogger<TenantShell> Logger
+
+@if (loading)
+{
+    <div class="d-flex justify-content-center py-5"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>
+}
+else if (failed)
+{
+    <ErrorAlert />
+}
+else if (tenant == null)
+{
+    <PageTitle>Not found | MEMS</PageTitle>
+    <div class="alert alert-warning">
+        <h1 class="h4">Municipality not found</h1>
+        <p class="mb-2">We couldn't find a municipality called "@Slug".</p>
+        <a href="/" class="btn btn-primary">Browse municipalities</a>
+    </div>
+}
+else
+{
+    <PageTitle>@(Title is null ? tenant.Name : $"{Title} – {tenant.Name}") | MEMS</PageTitle>
+    <header class="tenant-header card mb-3" style="--tenant-accent: @accent">
+        <div class="card-body d-flex align-items-center gap-3">
+            <img src="@Images.Logo(tenant.LogoFileName)" alt="@tenant.Name logo" class="tenant-logo" />
+            <div>
+                <h1 class="h3 mb-0">@tenant.Name</h1>
+                <div class="text-body-secondary">@tenant.Province · Election day: @tenant.ElectionDate.ToString("MMMM d, yyyy")</div>
+            </div>
+        </div>
+        <nav class="tenant-nav nav px-3 no-print" aria-label="@tenant.Name sections">
+            <NavLink class="nav-link" href="@Path("")" Match="NavLinkMatch.All">Home</NavLink>
+            <NavLink class="nav-link" href="@Path("/positions")">Positions</NavLink>
+            <NavLink class="nav-link" href="@Path("/candidates")">Candidates</NavLink>
+            <NavLink class="nav-link" href="@Path("/guide")">My Guide</NavLink>
+        </nav>
+    </header>
+
+    @* The page body receives its tenant as the context, so it can't be pointed at another tenant. *@
+    <div style="--tenant-accent: @accent">@ChildContent?.Invoke(tenant)</div>
+}
+
+@code {
+    [Parameter, EditorRequired] public string Slug { get; set; } = "";
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public RenderFragment<MunicipalityDto>? ChildContent { get; set; }
+
+    private MunicipalityDto? tenant;
+    private bool loading = true, failed;
+    private string accent = "#0d6efd";
+    private string? loadedSlug;
+
+    // Reload only when the slug changes (not on every parameter set).
+    protected override async Task OnParametersSetAsync()
+    {
+        if (string.Equals(loadedSlug, Slug, StringComparison.OrdinalIgnoreCase)) return;
+        loadedSlug = Slug;
+        loading = true; failed = false;
+        try
+        {
+            tenant = await Tenants.GetAsync(Slug);
+            // Accent hue comes from the slug so new tenants get their own colour without any config.
+            accent = $"hsl({(tenant == null ? 0 : Hue(tenant.TenantSlug))} 60% 40%)";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load tenant {Slug}", Slug);
+            failed = true;
+        }
+        loading = false;
+    }
+
+    // Polynomial string hash (x31) mod 360: burnaby=89, surrey=262, richmond=340, so the seeded tenants look clearly different.
+    private static uint Hue(string slug)
+    {
+        uint h = 0;
+        foreach (var c in slug) h = unchecked(h * 31 + c);
+        return h % 360;
+    }
+
+    private string Path(string suffix) => $"/{tenant!.TenantSlug}{suffix}";
+}

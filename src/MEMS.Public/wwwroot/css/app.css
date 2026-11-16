@@ -6,22 +6,32 @@ h1:focus {
     outline: none;
 }
 
-a, .btn-link {
-    color: #0071c1;
-}
+/* Each tenant sets --tenant-accent on its header (see TenantShell); default is Bootstrap blue. */
+:root { --tenant-accent: #0d6efd; }
 
 .btn-primary {
-    color: #fff;
-    background-color: #1b6ec2;
-    border-color: #1861ac;
+    --bs-btn-bg: var(--tenant-accent);
+    --bs-btn-border-color: var(--tenant-accent);
+    --bs-btn-hover-bg: color-mix(in srgb, var(--tenant-accent) 85%, black);
+    --bs-btn-hover-border-color: color-mix(in srgb, var(--tenant-accent) 85%, black);
+    --bs-btn-active-bg: color-mix(in srgb, var(--tenant-accent) 75%, black);
+    --bs-btn-active-border-color: color-mix(in srgb, var(--tenant-accent) 75%, black);
 }
 
-.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+.tenant-header { border-left: .5rem solid var(--tenant-accent); }
+.tenant-logo { height: 64px; width: 64px; object-fit: contain; }
+.tenant-nav .nav-link.active { color: var(--tenant-accent); border-bottom: 2px solid var(--tenant-accent); font-weight: 600; }
+
+.print-only { display: none; }
+
+@media (max-width: 575.98px) {
+    .btn { min-height: 44px; }
 }
 
-.content {
-    padding-top: 1.1rem;
+@media print {
+    .no-print { display: none !important; }
+    .print-only { display: block !important; }
+    a[href]::after { content: none !important; }
 }
 
 .valid.modified:not([type=checkbox]) {

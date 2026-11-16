@@ -1,5 +1,35 @@
 @inherits LayoutComponentBase
+@inject IJSRuntime JS
+
+<nav class="navbar navbar-expand-lg bg-body-tertiary border-bottom no-print">
+    <div class="container">
+        <a class="navbar-brand fw-bold" href="/">MEMS</a>
+        <span class="navbar-text d-none d-sm-inline">Municipal Elections</span>
+        <button class="btn btn-outline-secondary ms-auto" type="button" @onclick="ToggleTheme"
+                aria-label="Switch between light and dark mode">
+            @(isDark ? "☀ Light" : "🌙 Dark")
+        </button>
+    </div>
+</nav>
 
 <main class="container py-4">
     @Body
 </main>
+
+<footer class="container py-3 text-body-secondary small border-top no-print">
+    MEMS · COMP 4976 Assignment 2
+</footer>
+
+@code {
+    private bool isDark;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        isDark = await JS.InvokeAsync<string>("memsTheme.current") == "dark";
+        StateHasChanged();
+    }
+
+    private async Task ToggleTheme()
+        => isDark = await JS.InvokeAsync<string>("memsTheme.toggle") == "dark";
+}

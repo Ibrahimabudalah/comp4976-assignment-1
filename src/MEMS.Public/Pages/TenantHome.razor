@@ -1,0 +1,12 @@
+@page "/{Slug}"
+
+<TenantShell Slug="@Slug" Context="tenant">
+    @if (!string.IsNullOrWhiteSpace(tenant.Description))
+    {
+        <p class="lead">@tenant.Description</p>
+    }
+</TenantShell>
+
+@code {
+    [Parameter] public string Slug { get; set; } = "";
+}

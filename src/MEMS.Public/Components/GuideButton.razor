@@ -1,0 +1,69 @@
+@implements IDisposable
+@inject VotingGuideService Guide
+@inject TenantState Tenants
+@inject ILogger<GuideButton> Logger
+
+<div class="no-print">
+    @if (inGuide)
+    {
+        <button type="button" class="btn btn-outline-danger btn-sm" @onclick="Remove">Remove from guide</button>
+    }
+    else
+    {
+        <button type="button" class="btn btn-success btn-sm" disabled="@(!canAdd)" title="@(canAdd ? null : message)" @onclick="Add">Add to guide</button>
+    }
+    @if (!string.IsNullOrEmpty(message))
+    {
+        <div class="small text-body-secondary mt-1">@message</div>
+    }
+</div>
+
+@code {
+    // Slug of the page's own tenant (not taken from the candidate), so the rule can refuse another municipality's candidate.
+    [Parameter, EditorRequired] public string Slug { get; set; } = "";
+    [Parameter, EditorRequired] public CandidateDto Candidate { get; set; } = null!;
+
+    private bool inGuide, canAdd;
+    private string? message;
+    private int seats = 1;
+
+    protected override void OnInitialized() => Guide.Changed += OnGuideChanged;
+    public void Dispose() => Guide.Changed -= OnGuideChanged;
+
+    protected override Task OnParametersSetAsync() => RefreshAsync();
+
+    // Another button (or the guide page) changed this tenant's guide: e.g. a chosen mayor disables the other mayors.
+    private void OnGuideChanged(string slug)
+    {
+        if (!string.Equals(slug, Slug, StringComparison.OrdinalIgnoreCase)) return;
+        _ = InvokeAsync(async () => { await RefreshAsync(); StateHasChanged(); });
+    }
+
+    private async Task RefreshAsync()
+    {
+        try
+        {
+            var entries = await Guide.GetAsync(Slug);
+            var positions = await Tenants.GetPositionsAsync(Slug);
+            seats = positions.FirstOrDefault(p => p.PositionId == Candidate.PositionId)?.SeatsAvailable ?? 1;
+            inGuide = entries.Any(e => e.CandidateId == Candidate.CandidateId);
+            var rule = VotingGuideService.CanAdd(Slug, Candidate, seats, entries.ToList());
+            canAdd = rule.IsValid;
+            message = rule.ErrorMessage;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not work out the guide state for candidate {Id}", Candidate.CandidateId);
+            canAdd = false;
+            message = "The voting guide is unavailable right now.";
+        }
+    }
+
+    private async Task Add()
+    {
+        var result = await Guide.AddAsync(Slug, Candidate, seats);
+        message = result.IsValid ? null : result.ErrorMessage;
+    }
+
+    private Task Remove() => Guide.RemoveAsync(Slug, Candidate.CandidateId);
+}

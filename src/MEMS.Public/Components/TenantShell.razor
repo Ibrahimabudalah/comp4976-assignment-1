@@ -1,5 +1,7 @@
 @inject TenantState Tenants
 @inject ImageUrls Images
+@implements IDisposable
+@inject VotingGuideService Guide
 @inject ILogger<TenantShell> Logger
 
 @if (loading)
@@ -34,7 +36,7 @@ else
             <NavLink class="nav-link" href="@Path("")" Match="NavLinkMatch.All">Home</NavLink>
             <NavLink class="nav-link" href="@Path("/positions")">Positions</NavLink>
             <NavLink class="nav-link" href="@Path("/candidates")">Candidates</NavLink>
-            <NavLink class="nav-link" href="@Path("/guide")">My Guide</NavLink>
+            <NavLink class="nav-link" href="@Path("/guide")">My Guide@if (guideCount > 0) {<span class="badge text-bg-secondary ms-1">@guideCount</span>}</NavLink>
         </nav>
     </header>
 
@@ -51,6 +53,17 @@ else
     private bool loading = true, failed;
     private string accent = "#0d6efd";
     private string? loadedSlug;
+    private int guideCount;
+
+    protected override void OnInitialized() => Guide.Changed += OnGuideChanged;
+    public void Dispose() => Guide.Changed -= OnGuideChanged;
+
+    // Keep the "My Guide (n)" badge current when a pick is added or removed anywhere on the page.
+    private void OnGuideChanged(string slug)
+    {
+        if (tenant == null || !string.Equals(slug, tenant.TenantSlug, StringComparison.OrdinalIgnoreCase)) return;
+        _ = InvokeAsync(async () => { guideCount = (await Guide.GetAsync(slug)).Count; StateHasChanged(); });
+    }
 
     // Reload only when the slug changes (not on every parameter set).
     protected override async Task OnParametersSetAsync()
@@ -61,6 +74,7 @@ else
         try
         {
             tenant = await Tenants.GetAsync(Slug);
+            guideCount = tenant == null ? 0 : (await Guide.GetAsync(tenant.TenantSlug)).Count;
             // Accent hue comes from the slug so new tenants get their own colour without any config.
             accent = $"hsl({(tenant == null ? 0 : Hue(tenant.TenantSlug))} 60% 40%)";
         }

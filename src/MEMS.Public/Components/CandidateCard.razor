@@ -15,10 +15,12 @@
                 <label class="form-check-label small" for="cmp-@Candidate.CandidateId">Compare</label>
             </div>
         </div>
+        <div class="mt-2"><GuideButton Slug="@Slug" Candidate="Candidate" /></div>
     </div>
 </div>
 
 @code {
+    [Parameter, EditorRequired] public string Slug { get; set; } = "";
     [Parameter, EditorRequired] public CandidateDto Candidate { get; set; } = null!;
     [Parameter] public bool Selected { get; set; }
     // true once 3 candidates are ticked, so a 4th can't be added

@@ -51,7 +51,7 @@
             @foreach (var c in candidates)
             {
                 <div class="col">
-                    <CandidateCard Candidate="c" Selected="compareIds.Contains(c.CandidateId)"
+                    <CandidateCard Slug="@tenant.TenantSlug" Candidate="c" Selected="compareIds.Contains(c.CandidateId)"
                                    CompareDisabled="compareIds.Count >= 3"
                                    OnCompareChanged="on => ToggleCompare(c.CandidateId, on)" />
                 </div>
@@ -88,7 +88,7 @@
             if (await Tenants.GetAsync(Slug) != null)
             {
                 if (tenantChanged || positionNames.Count == 0)
-                    positionNames = (await Api.GetPositionsAsync(Slug)).Select(p => p.Name).Distinct().Order().ToList();
+                    positionNames = (await Tenants.GetPositionsAsync(Slug)).Select(p => p.Name).Distinct().Order().ToList();
                 candidates = await Api.GetCandidatesAsync(Slug, Search, Position);
             }
         }

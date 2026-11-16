@@ -15,5 +15,6 @@ builder.Services.AddBlazoredSessionStorage();
 builder.Services.AddScoped<MemsApiClient>();
 builder.Services.AddScoped<ImageUrls>();
 builder.Services.AddScoped<TenantState>();
+builder.Services.AddScoped<VotingGuideService>();
 
 await builder.Build().RunAsync();

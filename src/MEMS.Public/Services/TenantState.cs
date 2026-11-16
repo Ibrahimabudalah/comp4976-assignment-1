@@ -8,6 +8,7 @@ namespace MEMS.Public.Services;
 public class TenantState(MemsApiClient api)
 {
     private readonly Dictionary<string, Task<MunicipalityDto?>> _cache = new();
+    private readonly Dictionary<string, Task<List<PositionDto>>> _positions = new();
 
     public async Task<MunicipalityDto?> GetAsync(string slug)
     {
@@ -18,6 +19,20 @@ public class TenantState(MemsApiClient api)
         catch
         {
             _cache.Remove(key); // don't cache failures: let the next attempt retry
+            throw;
+        }
+    }
+
+    // Positions (and their seat counts) per tenant, shared by every page and GuideButton for this tab.
+    public async Task<List<PositionDto>> GetPositionsAsync(string slug)
+    {
+        var key = slug.Trim().ToLowerInvariant();
+        if (!_positions.TryGetValue(key, out var request))
+            _positions[key] = request = api.GetPositionsAsync(key);
+        try { return await request; }
+        catch
+        {
+            _positions.Remove(key);
             throw;
         }
     }

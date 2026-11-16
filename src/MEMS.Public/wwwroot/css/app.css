@@ -133,3 +133,10 @@ code {
 
 .candidate-photo { width: 100%; height: 200px; object-fit: cover; }
 .candidate-photo-lg { width: 100%; max-width: 280px; aspect-ratio: 1; object-fit: cover; }
+
+.guide-photo { width: 48px; height: 48px; object-fit: cover; }
+
+@media print {
+    /* the voting guide prints its own heading (municipality, election date, print date) */
+    .tenant-header { display: none !important; }
+}

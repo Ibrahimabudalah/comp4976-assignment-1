@@ -1,0 +1,131 @@
+@page "/{Slug}/guide"
+@inject MemsApiClient Api
+@inject TenantState Tenants
+@inject VotingGuideService Guide
+@inject ImageUrls Images
+@inject IJSRuntime JS
+@inject ILogger<MyGuide> Logger
+
+<TenantShell Slug="@Slug" Title="My Guide" Context="tenant">
+    @* Printed heading (the on-screen tenant header and nav are hidden in print) *@
+    <div class="print-only mb-3">
+        <h1 class="h3">@tenant.Name – Personal Voting Guide</h1>
+        <p class="mb-0">Election date: @tenant.ElectionDate.ToString("MMMM d, yyyy")</p>
+        <p>Printed: <span data-print-date></span></p>
+    </div>
+
+    <h2 class="h4 no-print">My voting guide</h2>
+    <p class="small text-body-secondary no-print">
+        Your choices are stored only in this browser tab and are deleted when you close it.
+        They are never sent to our servers.
+    </p>
+
+    @if (loading)
+    {
+        <div class="d-flex justify-content-center py-4"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>
+    }
+    else if (failed)
+    {
+        <ErrorAlert />
+    }
+    else if (groups.Count == 0)
+    {
+        <div class="alert alert-info no-print">
+            Your guide is empty. <a href="/@tenant.TenantSlug/candidates" class="alert-link">Browse candidates</a> to add them.
+        </div>
+    }
+    else
+    {
+        @foreach (var g in groups)
+        {
+            <section class="mb-3">
+                <h3 class="h5">@g.Position.Name <span class="text-body-secondary fw-normal">(@g.Candidates.Count of @g.Position.SeatsAvailable chosen)</span></h3>
+                <ul class="list-group">
+                    @foreach (var c in g.Candidates)
+                    {
+                        <li class="list-group-item d-flex align-items-center gap-3">
+                            <img src="@Images.Photo(c.PhotoFileName)" alt="Photo of @c.Name" class="guide-photo rounded" />
+                            <a class="flex-grow-1 fw-semibold text-decoration-none" href="/@tenant.TenantSlug/candidates/@c.CandidateId">@c.Name</a>
+                            <button type="button" class="btn btn-outline-danger btn-sm no-print" @onclick="() => RemoveAsync(c.CandidateId)">Remove</button>
+                        </li>
+                    }
+                </ul>
+            </section>
+        }
+
+        <div class="d-flex flex-wrap gap-2 mt-3 no-print">
+            <button type="button" class="btn btn-primary" @onclick="PrintAsync">Print guide</button>
+            @if (confirmClear)
+            {
+                <button type="button" class="btn btn-danger" @onclick="ClearAsync">Yes, clear my guide</button>
+                <button type="button" class="btn btn-outline-secondary" @onclick="() => { confirmClear = false; }">Cancel</button>
+            }
+            else
+            {
+                <button type="button" class="btn btn-outline-danger" @onclick="() => { confirmClear = true; }">Clear guide</button>
+            }
+        </div>
+    }
+</TenantShell>
+
+@code {
+    private record Group(PositionDto Position, List<CandidateDto> Candidates);
+
+    [Parameter] public string Slug { get; set; } = "";
+
+    private List<Group> groups = [];
+    private Dictionary<int, CandidateDto> byId = [];
+    private Dictionary<int, PositionDto> positionsById = [];
+    private bool loading = true, failed, confirmClear;
+    private string? loadedSlug;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (string.Equals(loadedSlug, Slug, StringComparison.OrdinalIgnoreCase)) return;
+        loadedSlug = Slug;
+        loading = true; failed = false; confirmClear = false; groups = [];
+        try
+        {
+            if (await Tenants.GetAsync(Slug) != null)
+            {
+                // Fresh from the API on every visit, so edits and deletions by admins show up. The picks themselves never leave the browser.
+                byId = (await Api.GetCandidatesAsync(Slug)).ToDictionary(c => c.CandidateId);
+                positionsById = (await Tenants.GetPositionsAsync(Slug)).ToDictionary(p => p.PositionId);
+                await RebuildAsync(prune: true);
+            }
+        }
+        catch (Exception ex) { Logger.LogError(ex, "Failed to load the voting guide for {Slug}", Slug); failed = true; }
+        loading = false;
+    }
+
+    private async Task RebuildAsync(bool prune)
+    {
+        var entries = await Guide.GetAsync(Slug);
+        // Drop candidates that no longer exist and refresh each pick's position from the current data.
+        var current = entries.Where(e => byId.ContainsKey(e.CandidateId))
+                             .Select(e => new GuideEntry(e.CandidateId, byId[e.CandidateId].PositionId)).ToList();
+        if (prune && !current.SequenceEqual(entries)) await Guide.ReplaceAsync(Slug, current);
+
+        groups = current.Select(e => byId[e.CandidateId])
+            .GroupBy(c => c.PositionId)
+            .Select(g => new Group(
+                positionsById.GetValueOrDefault(g.Key) ?? new PositionDto { PositionId = g.Key, Name = g.First().PositionName, SeatsAvailable = 1 },
+                g.OrderBy(c => c.Name).ToList()))
+            .OrderBy(g => g.Position.Name).ToList();
+    }
+
+    private async Task RemoveAsync(int candidateId)
+    {
+        await Guide.RemoveAsync(Slug, candidateId);
+        await RebuildAsync(prune: false);
+    }
+
+    private async Task ClearAsync()
+    {
+        await Guide.ClearAsync(Slug);
+        confirmClear = false;
+        await RebuildAsync(prune: false);
+    }
+
+    private async Task PrintAsync() => await JS.InvokeVoidAsync("memsTheme.print");
+}

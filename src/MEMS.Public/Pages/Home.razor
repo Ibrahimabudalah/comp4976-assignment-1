@@ -1,7 +1,22 @@
-﻿@page "/"
+@page "/"
+@inject MemsApiClient Api
 
-<PageTitle>Home</PageTitle>
+<PageTitle>MEMS</PageTitle>
 
-<h1>Hello, world!</h1>
+<h1>Municipalities</h1>
 
-Welcome to your new app.
+@if (names == null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <ul>@foreach (var n in names) { <li>@n</li> }</ul>
+}
+
+@code {
+    // temporary Phase 1 connectivity check; replaced by the municipality picker in Phase 3
+    private List<string>? names;
+    protected override async Task OnInitializedAsync()
+        => names = (await Api.GetMunicipalitiesAsync()).Select(m => m.Name).ToList();
+}

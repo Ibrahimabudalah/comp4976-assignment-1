@@ -9,6 +9,19 @@ public class TenantState(MemsApiClient api)
 {
     private readonly Dictionary<string, Task<MunicipalityDto?>> _cache = new();
     private readonly Dictionary<string, Task<List<PositionDto>>> _positions = new();
+    private Task<List<MunicipalityDto>>? _all;
+
+    // All municipalities (for the municipality filter), fetched once per tab.
+    public async Task<List<MunicipalityDto>> GetAllAsync()
+    {
+        _all ??= api.GetMunicipalitiesAsync();
+        try { return await _all; }
+        catch
+        {
+            _all = null;
+            throw;
+        }
+    }
 
     public async Task<MunicipalityDto?> GetAsync(string slug)
     {

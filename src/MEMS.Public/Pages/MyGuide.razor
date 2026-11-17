@@ -40,6 +40,13 @@
         {
             <section class="mb-3">
                 <h3 class="h5">@g.Position.Name <span class="text-body-secondary fw-normal">(@g.Candidates.Count of @g.Position.SeatsAvailable chosen)</span></h3>
+                @if (g.Candidates.Count > g.Position.SeatsAvailable)
+                {
+                    @* Seats can be reduced by an admin after picks were made. *@
+                    <div class="alert alert-warning py-2">
+                        This position now has @g.Position.SeatsAvailable seat@(g.Position.SeatsAvailable == 1 ? "" : "s"). Please remove @(g.Candidates.Count - g.Position.SeatsAvailable).
+                    </div>
+                }
                 <ul class="list-group">
                     @foreach (var c in g.Candidates)
                     {
@@ -54,7 +61,7 @@
         }
 
         <div class="d-flex flex-wrap gap-2 mt-3 no-print">
-            <button type="button" class="btn btn-primary" @onclick="PrintAsync">Print guide</button>
+            <button type="button" class="btn btn-primary" @onclick="PrintAsync">Print / Save as PDF</button>
             @if (confirmClear)
             {
                 <button type="button" class="btn btn-danger" @onclick="ClearAsync">Yes, clear my guide</button>

@@ -9,11 +9,21 @@
 
     @* Search and filter live in the query string so results can be bookmarked or shared. *@
     <form class="row g-2 mb-3 no-print" @onsubmit="ApplyFilters">
-        <div class="col-12 col-md-5">
+        <div class="col-12 col-md-4">
             <label class="form-label visually-hidden" for="search">Search by name</label>
             <input id="search" class="form-control" placeholder="Search by name" maxlength="150" @bind="searchInput" />
         </div>
-        <div class="col-12 col-md-4">
+        <div class="col-12 col-md-3">
+            @* Switching municipality opens that municipality's own page, so each page still shows one tenant's data only. *@
+            <label class="form-label visually-hidden" for="municipality">Municipality</label>
+            <select id="municipality" class="form-select" value="@tenant.TenantSlug" @onchange="SwitchMunicipality">
+                @foreach (var m in municipalities)
+                {
+                    <option value="@m.TenantSlug">@m.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-12 col-md-3">
             <label class="form-label visually-hidden" for="position">Position</label>
             <select id="position" class="form-select" @bind="positionInput">
                 <option value="">All positions</option>
@@ -37,7 +47,11 @@
     }
     else if (candidates.Count == 0)
     {
-        <div class="alert alert-info">No candidates match your search.</div>
+        <div class="alert alert-info">
+            @(string.IsNullOrEmpty(Search) && string.IsNullOrEmpty(Position)
+                ? $"No candidates have been added for {tenant.Name} yet."
+                : "No candidates match your search.")
+        </div>
     }
     else
     {
@@ -68,6 +82,7 @@
 
     private List<CandidateDto> candidates = [];
     private List<string> positionNames = [];
+    private List<MunicipalityDto> municipalities = [];
     private readonly HashSet<int> compareIds = [];
     private string searchInput = "", positionInput = "";
     private bool loading = true, failed;
@@ -90,6 +105,7 @@
                 if (tenantChanged || positionNames.Count == 0)
                     positionNames = (await Tenants.GetPositionsAsync(Slug)).Select(p => p.Name).Distinct().Order().ToList();
                 candidates = await Api.GetCandidatesAsync(Slug, Search, Position);
+                if (municipalities.Count == 0) municipalities = await Tenants.GetAllAsync();
             }
         }
         catch (Exception ex) { Logger.LogError(ex, "Failed to load candidates for {Slug}", Slug); failed = true; }
@@ -102,6 +118,14 @@
             ["search"] = string.IsNullOrWhiteSpace(searchInput) ? null : searchInput.Trim(),
             ["position"] = string.IsNullOrEmpty(positionInput) ? null : positionInput
         }));
+
+    // Keeps the name search; the position filter is dropped because position names differ between municipalities.
+    private void SwitchMunicipality(ChangeEventArgs e)
+    {
+        if (e.Value is not string slug || string.Equals(slug, Slug, StringComparison.OrdinalIgnoreCase)) return;
+        Nav.NavigateTo(Nav.GetUriWithQueryParameters($"/{slug}/candidates",
+            new Dictionary<string, object?> { ["search"] = string.IsNullOrWhiteSpace(Search) ? null : Search }));
+    }
 
     private void ToggleCompare(int id, bool on)
     {

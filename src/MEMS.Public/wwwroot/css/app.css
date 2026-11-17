@@ -7,7 +7,7 @@ h1:focus {
 }
 
 /* Each tenant sets --tenant-accent on its header (see TenantShell); default is Bootstrap blue. */
-:root { --tenant-accent: #0d6efd; }
+:root { --tenant-accent: #0b5ed7; --tenant-accent-light: #6ea8fe; }
 
 .btn-primary {
     --bs-btn-bg: var(--tenant-accent);
@@ -21,11 +21,52 @@ h1:focus {
 .tenant-header { border-left: .5rem solid var(--tenant-accent); }
 .tenant-logo { height: 64px; width: 64px; object-fit: contain; }
 .tenant-nav .nav-link.active { color: var(--tenant-accent); border-bottom: 2px solid var(--tenant-accent); font-weight: 600; }
+[data-bs-theme=dark] .tenant-nav .nav-link.active { color: var(--tenant-accent-light); border-bottom-color: var(--tenant-accent-light); }
+
+/* Outline buttons follow the tenant colour too (text uses the light variant on the dark theme) */
+.btn-outline-primary {
+    --bs-btn-color: var(--tenant-accent);
+    --bs-btn-border-color: var(--tenant-accent);
+    --bs-btn-hover-bg: var(--tenant-accent);
+    --bs-btn-hover-border-color: var(--tenant-accent);
+    --bs-btn-hover-color: #fff;
+    --bs-btn-active-bg: var(--tenant-accent);
+    --bs-btn-active-border-color: var(--tenant-accent);
+    --bs-btn-active-color: #fff;
+    --bs-btn-disabled-color: var(--tenant-accent);
+    --bs-btn-disabled-border-color: var(--tenant-accent);
+}
+[data-bs-theme=dark] .btn-outline-primary {
+    --bs-btn-color: var(--tenant-accent-light);
+    --bs-btn-border-color: var(--tenant-accent-light);
+    --bs-btn-disabled-color: var(--tenant-accent-light);
+    --bs-btn-disabled-border-color: var(--tenant-accent-light);
+}
 
 .print-only { display: none; }
 
+/* 44px touch targets on phones */
 @media (max-width: 575.98px) {
-    .btn { min-height: 44px; }
+    .btn, .form-control, .form-select { min-height: 44px; }
+    .tenant-nav .nav-link { min-height: 44px; display: flex; align-items: center; }
+    .form-check { display: flex; align-items: center; gap: .6rem; min-height: 44px; padding-left: 0; }
+    .form-check .form-check-input { float: none; margin: 0; width: 1.4rem; height: 1.4rem; }
+}
+
+/* Bootstrap's grey and red outline buttons are too faint on the dark theme (2.8-3.4:1); use its own readable text colours */
+.btn-outline-secondary {
+    --bs-btn-color: var(--bs-secondary-color);
+    --bs-btn-border-color: var(--bs-secondary-color);
+    --bs-btn-hover-color: var(--bs-body-color);
+    --bs-btn-hover-bg: var(--bs-secondary-bg);
+    --bs-btn-hover-border-color: var(--bs-secondary-color);
+    --bs-btn-active-color: var(--bs-body-color);
+    --bs-btn-active-bg: var(--bs-secondary-bg);
+    --bs-btn-active-border-color: var(--bs-secondary-color);
+}
+[data-bs-theme=dark] .btn-outline-danger {
+    --bs-btn-color: var(--bs-danger-text-emphasis);
+    --bs-btn-border-color: var(--bs-danger-text-emphasis);
 }
 
 @media print {

@@ -24,7 +24,7 @@ else if (tenant == null)
 else
 {
     <PageTitle>@(Title is null ? tenant.Name : $"{Title} – {tenant.Name}") | MEMS</PageTitle>
-    <header class="tenant-header card mb-3" style="--tenant-accent: @accent">
+    <header class="tenant-header card mb-3" style="@accentStyle">
         <div class="card-body d-flex align-items-center gap-3">
             <img src="@Images.Logo(tenant.LogoFileName)" alt="@tenant.Name logo" class="tenant-logo" />
             <div>
@@ -36,12 +36,18 @@ else
             <NavLink class="nav-link" href="@Path("")" Match="NavLinkMatch.All">Home</NavLink>
             <NavLink class="nav-link" href="@Path("/positions")">Positions</NavLink>
             <NavLink class="nav-link" href="@Path("/candidates")">Candidates</NavLink>
-            <NavLink class="nav-link" href="@Path("/guide")">My Guide@if (guideCount > 0) {<span class="badge text-bg-secondary ms-1">@guideCount</span>}</NavLink>
+            <NavLink class="nav-link" href="@Path("/guide")">
+                My Guide
+                @if (guideCount > 0)
+                {
+                    <span class="badge text-bg-secondary ms-1">@guideCount</span>
+                }
+            </NavLink>
         </nav>
     </header>
 
     @* The page body receives its tenant as the context, so it can't be pointed at another tenant. *@
-    <div style="--tenant-accent: @accent">@ChildContent?.Invoke(tenant)</div>
+    <div style="@accentStyle">@ChildContent?.Invoke(tenant)</div>
 }
 
 @code {
@@ -51,7 +57,7 @@ else
 
     private MunicipalityDto? tenant;
     private bool loading = true, failed;
-    private string accent = "#0d6efd";
+    private string accentStyle = "";   // per-tenant colours (see Hue)
     private string? loadedSlug;
     private int guideCount;
 
@@ -76,7 +82,10 @@ else
             tenant = await Tenants.GetAsync(Slug);
             guideCount = tenant == null ? 0 : (await Guide.GetAsync(tenant.TenantSlug)).Count;
             // Accent hue comes from the slug so new tenants get their own colour without any config.
-            accent = $"hsl({(tenant == null ? 0 : Hue(tenant.TenantSlug))} 60% 40%)";
+            // 28% lightness keeps white button text at 5:1 or better for every hue (Burnaby's green failed at 40%);
+            // 75% lightness is the readable version of the same colour for text on the dark theme.
+            var hue = tenant == null ? 0 : Hue(tenant.TenantSlug);
+            accentStyle = $"--tenant-accent: hsl({hue} 60% 28%); --tenant-accent-light: hsl({hue} 60% 75%)";
         }
         catch (Exception ex)
         {

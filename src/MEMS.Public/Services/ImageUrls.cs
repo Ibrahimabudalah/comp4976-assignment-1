@@ -2,7 +2,7 @@ namespace MEMS.Public.Services;
 
 public class ImageUrls(IConfiguration config)
 {
-    private const string Placeholder = "favicon.png";
+    private const string Placeholder = "placeholder.svg";
     private readonly string _adminBase = (config["AdminBaseUrl"] ?? "").TrimEnd('/');
 
     // shortcut: images are served by MEMS.Admin's wwwroot; switch to API-served images if the partner moves uploads.

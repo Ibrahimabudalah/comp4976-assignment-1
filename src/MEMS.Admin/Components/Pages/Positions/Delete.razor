@@ -3,6 +3,7 @@
 @inject IPositionRepository PositionRepo
 @inject TenantAuthorizationService AuthService
 @inject NavigationManager Navigation
+@inject ILogger<Delete> Logger
 
 <PageTitle>Delete Position - MEMS Admin</PageTitle>
 
@@ -104,7 +105,8 @@
         }
         catch (Exception ex)
         {
-            errorMessage = $"An unexpected error occurred: {ex.Message}";
+            Logger.LogError(ex, "Unexpected error deleting position {PositionId}", Id);
+            errorMessage = "An unexpected error occurred while deleting the position. Please try again.";
         }
         finally
         {

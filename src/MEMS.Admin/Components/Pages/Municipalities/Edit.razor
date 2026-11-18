@@ -4,6 +4,7 @@
 @inject RoleManager<IdentityRole> RoleManager
 @inject ImageUploadService ImageUploadService
 @inject NavigationManager Navigation
+@inject ILogger<Edit> Logger
 
 <PageTitle>Edit Municipality - MEMS Admin</PageTitle>
 
@@ -196,7 +197,14 @@
                 var role = await RoleManager.FindByNameAsync(oldRoleName);
                 if (role != null)
                 {
-                    await RoleManager.SetRoleNameAsync(role, newRoleName);
+                    var setRoleResult = await RoleManager.SetRoleNameAsync(role, newRoleName);
+                    if (!setRoleResult.Succeeded)
+                    {
+                        errorMessage = $"Failed to set role name: {string.Join(", ", setRoleResult.Errors.Select(e => e.Description))}";
+                        isSubmitting = false;
+                        return;
+                    }
+
                     var updateResult = await RoleManager.UpdateAsync(role);
                     if (!updateResult.Succeeded)
                     {
@@ -211,7 +219,8 @@
         }
         catch (Exception ex)
         {
-            errorMessage = $"Error updating municipality: {ex.Message}";
+            Logger.LogError(ex, "Unexpected error updating municipality {MunicipalityId}", Id);
+            errorMessage = "An unexpected error occurred while updating the municipality. Please try again.";
         }
         finally
         {

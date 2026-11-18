@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using MEMS.Data.Entities;
@@ -62,8 +63,11 @@ public class MunicipalitiesController : ControllerBase
 
     // Creates a new municipality tenant.
     [HttpPost]
+    [Authorize(Roles = AdminRoles.SuperAdmin)]
     [ProducesResponseType(typeof(MunicipalityDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<MunicipalityDto>> Create([FromBody] CreateMunicipalityDto dto)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -131,8 +135,11 @@ public class MunicipalitiesController : ControllerBase
 
     // Updates an existing municipality tenant.
     [HttpPut("{id:int}")]
+    [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateMunicipalityDto dto)
     {
@@ -141,6 +148,16 @@ public class MunicipalitiesController : ControllerBase
 
         var existing = await _repository.GetByIdAsync(id);
         if (existing == null) return NotFound(new { message = $"Municipality with ID {id} was not found." });
+
+        // Enforce tenant boundary: Super Admin can update any tenant; Municipality Admin can only update their own
+        if (!User.IsInRole(AdminRoles.SuperAdmin))
+        {
+            var claimSlug = User.FindFirst("tenantSlug")?.Value;
+            if (claimSlug == null || !claimSlug.Equals(existing.TenantSlug, StringComparison.OrdinalIgnoreCase))
+            {
+                return Forbid();
+            }
+        }
 
         if (await _repository.NameExistsAsync(dto.Name, id))
         {
@@ -187,8 +204,11 @@ public class MunicipalitiesController : ControllerBase
 
     // Deletes a municipality tenant if it has no associated positions, candidates, or admins.
     [HttpDelete("{id:int}")]
+    [Authorize(Roles = AdminRoles.SuperAdmin)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(int id)
     {

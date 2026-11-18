@@ -5,6 +5,7 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject ImageUploadService ImageUploadService
 @inject NavigationManager Navigation
+@inject ILogger<Create> Logger
 
 <PageTitle>Create Municipality - MEMS Admin</PageTitle>
 
@@ -139,6 +140,31 @@
 
         try
         {
+            // Validate initial admin credentials if toggle is checked
+            if (model.CreateInitialAdmin)
+            {
+                if (string.IsNullOrWhiteSpace(model.AdminUserName))
+                {
+                    errorMessage = "Admin username is required when creating an initial administrator.";
+                    isSubmitting = false;
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(model.AdminPassword))
+                {
+                    errorMessage = "Admin password is required when creating an initial administrator.";
+                    isSubmitting = false;
+                    return;
+                }
+
+                if (model.AdminPassword.Trim().Length < 8)
+                {
+                    errorMessage = "Admin password must be at least 8 characters.";
+                    isSubmitting = false;
+                    return;
+                }
+            }
+
             // Validate unique name and slug
             if (await MunicipalityRepo.NameExistsAsync(model.Name))
             {
@@ -229,7 +255,8 @@
         }
         catch (Exception ex)
         {
-            errorMessage = $"An unexpected error occurred: {ex.Message}";
+            Logger.LogError(ex, "Unexpected error creating municipality {Name}", model.Name);
+            errorMessage = "An unexpected error occurred while creating the municipality. Please try again.";
         }
         finally
         {

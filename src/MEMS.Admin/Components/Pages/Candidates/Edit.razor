@@ -5,6 +5,7 @@
 @inject TenantAuthorizationService AuthService
 @inject ImageUploadService ImageUploadService
 @inject NavigationManager Navigation
+@inject ILogger<Edit> Logger
 
 <PageTitle>Edit Candidate - MEMS Admin</PageTitle>
 
@@ -207,7 +208,8 @@
         }
         catch (Exception ex)
         {
-            errorMessage = $"Error updating candidate: {ex.Message}";
+            Logger.LogError(ex, "Unexpected error updating candidate {CandidateId}", Id);
+            errorMessage = "An unexpected error occurred while updating the candidate. Please try again.";
         }
         finally
         {

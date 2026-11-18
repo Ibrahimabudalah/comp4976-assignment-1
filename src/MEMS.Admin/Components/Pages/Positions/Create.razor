@@ -4,6 +4,7 @@
 @inject IMunicipalityRepository MunicipalityRepo
 @inject TenantAuthorizationService AuthService
 @inject NavigationManager Navigation
+@inject ILogger<Create> Logger
 
 <PageTitle>Create Position - MEMS Admin</PageTitle>
 
@@ -145,7 +146,8 @@
         }
         catch (Exception ex)
         {
-            errorMessage = $"An unexpected error occurred: {ex.Message}";
+            Logger.LogError(ex, "Unexpected error creating position {Name}", model.Name);
+            errorMessage = "An unexpected error occurred while creating the position. Please try again.";
         }
         finally
         {

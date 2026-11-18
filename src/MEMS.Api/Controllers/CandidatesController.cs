@@ -1,6 +1,9 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using MEMS.Data.Entities;
 using MEMS.Data.Repositories;
+using MEMS.Shared.Constants;
 using MEMS.Shared.Dtos;
 
 namespace MEMS.Api.Controllers;
@@ -12,15 +15,18 @@ public class CandidatesController : ControllerBase
     private readonly ICandidateRepository _candidateRepository;
     private readonly IPositionRepository _positionRepository;
     private readonly IMunicipalityRepository _municipalityRepository;
+    private readonly UserManager<ApplicationUser> _userManager;
 
     public CandidatesController(
         ICandidateRepository candidateRepository,
         IPositionRepository positionRepository,
-        IMunicipalityRepository municipalityRepository)
+        IMunicipalityRepository municipalityRepository,
+        UserManager<ApplicationUser> userManager)
     {
         _candidateRepository = candidateRepository;
         _positionRepository = positionRepository;
         _municipalityRepository = municipalityRepository;
+        _userManager = userManager;
     }
 
     // Gets all candidates for the specified tenant with optional name search and position filtering.
@@ -90,11 +96,19 @@ public class CandidatesController : ControllerBase
 
     // Creates a candidate for the specified tenant.
     [HttpPost("api/{tenantSlug}/candidates")]
+    [Authorize]
     [ProducesResponseType(typeof(CandidateDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<CandidateDto>> CreateForTenant(string tenantSlug, [FromBody] CreateCandidateDto dto)
     {
+        if (!await CanWriteToTenantAsync(tenantSlug))
+        {
+            return Forbid();
+        }
+
         var tenant = await _municipalityRepository.GetBySlugAsync(tenantSlug);
         if (tenant == null) return NotFound(new { message = $"Tenant '{tenantSlug}' was not found." });
 
@@ -109,11 +123,19 @@ public class CandidatesController : ControllerBase
 
     // Updates a candidate ensuring tenant boundary isolation.
     [HttpPut("api/{tenantSlug}/candidates/{id:int}")]
+    [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateForTenant(string tenantSlug, int id, [FromBody] UpdateCandidateDto dto)
     {
+        if (!await CanWriteToTenantAsync(tenantSlug))
+        {
+            return Forbid();
+        }
+
         var candidate = await _candidateRepository.GetByIdAsync(id);
         if (candidate == null || !candidate.Municipality.TenantSlug.Equals(tenantSlug, StringComparison.OrdinalIgnoreCase))
         {
@@ -125,11 +147,19 @@ public class CandidatesController : ControllerBase
 
     // Deletes a candidate ensuring tenant boundary isolation.
     [HttpDelete("api/{tenantSlug}/candidates/{id:int}")]
+    [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteForTenant(string tenantSlug, int id)
     {
+        if (!await CanWriteToTenantAsync(tenantSlug))
+        {
+            return Forbid();
+        }
+
         var candidate = await _candidateRepository.GetByIdAsync(id);
         if (candidate == null || !candidate.Municipality.TenantSlug.Equals(tenantSlug, StringComparison.OrdinalIgnoreCase))
         {
@@ -162,16 +192,22 @@ public class CandidatesController : ControllerBase
     }
 
     [HttpPost("api/candidates")]
+    [Authorize(Roles = AdminRoles.SuperAdmin)]
     [ProducesResponseType(typeof(CandidateDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<CandidateDto>> Create([FromBody] CreateCandidateDto dto)
     {
         return await CreateInternal(dto);
     }
 
     [HttpPut("api/candidates/{id:int}")]
+    [Authorize(Roles = AdminRoles.SuperAdmin)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateCandidateDto dto)
     {
@@ -179,12 +215,37 @@ public class CandidatesController : ControllerBase
     }
 
     [HttpDelete("api/candidates/{id:int}")]
+    [Authorize(Roles = AdminRoles.SuperAdmin)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(int id)
     {
         return await DeleteInternal(id);
+    }
+
+    // Tenant write scoping authorization helper
+    private async Task<bool> CanWriteToTenantAsync(string tenantSlug)
+    {
+        if (User.IsInRole(AdminRoles.SuperAdmin))
+            return true;
+
+        var claimSlug = User.FindFirst("tenantSlug")?.Value;
+        if (!string.IsNullOrEmpty(claimSlug))
+        {
+            return claimSlug.Equals(tenantSlug, StringComparison.OrdinalIgnoreCase);
+        }
+
+        var userName = User.Identity?.Name;
+        if (string.IsNullOrEmpty(userName)) return false;
+
+        var user = await _userManager.FindByNameAsync(userName);
+        if (user?.MunicipalityId == null) return false;
+
+        var tenant = await _municipalityRepository.GetByIdAsync(user.MunicipalityId.Value);
+        return tenant != null && tenant.TenantSlug.Equals(tenantSlug, StringComparison.OrdinalIgnoreCase);
     }
 
     // Shared implementation helpers

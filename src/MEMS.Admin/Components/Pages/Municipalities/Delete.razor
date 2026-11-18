@@ -4,6 +4,7 @@
 @inject RoleManager<IdentityRole> RoleManager
 @inject ImageUploadService ImageUploadService
 @inject NavigationManager Navigation
+@inject ILogger<Delete> Logger
 
 <PageTitle>Delete Municipality - MEMS Admin</PageTitle>
 
@@ -114,7 +115,8 @@
                     var roleResult = await RoleManager.DeleteAsync(role);
                     if (!roleResult.Succeeded)
                     {
-                        // Log warning but proceed since municipality was deleted
+                        Logger.LogWarning("Failed to delete role {RoleName} after deleting municipality: {Errors}",
+                            roleName, string.Join(", ", roleResult.Errors.Select(e => e.Description)));
                     }
                 }
 
@@ -127,7 +129,8 @@
         }
         catch (Exception ex)
         {
-            errorMessage = $"An unexpected error occurred: {ex.Message}";
+            Logger.LogError(ex, "Unexpected error deleting municipality {MunicipalityId}", Id);
+            errorMessage = "An unexpected error occurred while deleting the municipality. Please try again.";
         }
         finally
         {

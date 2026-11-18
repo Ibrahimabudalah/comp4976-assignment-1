@@ -4,6 +4,7 @@
 @inject RoleManager<IdentityRole> RoleManager
 @inject IMunicipalityRepository MunicipalityRepo
 @inject NavigationManager Navigation
+@inject ILogger<Create> Logger
 
 <PageTitle>Create Administrator - MEMS Admin</PageTitle>
 
@@ -149,18 +150,39 @@
                     var specificRole = AdminRoles.ForMunicipality(municipality.Name);
                     if (!await RoleManager.RoleExistsAsync(specificRole))
                     {
-                        await RoleManager.CreateAsync(new IdentityRole(specificRole));
+                        var createRoleResult = await RoleManager.CreateAsync(new IdentityRole(specificRole));
+                        if (!createRoleResult.Succeeded)
+                        {
+                            errorMessage = $"Failed to create role '{specificRole}': " + string.Join("; ", createRoleResult.Errors.Select(e => e.Description));
+                            isSubmitting = false;
+                            return;
+                        }
                     }
-                    await UserManager.AddToRoleAsync(user, specificRole);
+
+                    var specificRoleResult = await UserManager.AddToRoleAsync(user, specificRole);
+                    if (!specificRoleResult.Succeeded)
+                    {
+                        errorMessage = $"Failed to assign role '{specificRole}': " + string.Join("; ", specificRoleResult.Errors.Select(e => e.Description));
+                        isSubmitting = false;
+                        return;
+                    }
                 }
-                await UserManager.AddToRoleAsync(user, AdminRoles.MunicipalityAdmin);
+
+                var adminRoleResult = await UserManager.AddToRoleAsync(user, AdminRoles.MunicipalityAdmin);
+                if (!adminRoleResult.Succeeded)
+                {
+                    errorMessage = $"Failed to assign role '{AdminRoles.MunicipalityAdmin}': " + string.Join("; ", adminRoleResult.Errors.Select(e => e.Description));
+                    isSubmitting = false;
+                    return;
+                }
             }
 
             Navigation.NavigateTo("users");
         }
         catch (Exception ex)
         {
-            errorMessage = $"An unexpected error occurred: {ex.Message}";
+            Logger.LogError(ex, "Unexpected error creating user {UserName}", model.UserName);
+            errorMessage = "An unexpected error occurred while creating the administrator. Please try again.";
         }
         finally
         {

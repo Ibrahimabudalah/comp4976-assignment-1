@@ -20,6 +20,8 @@ ref/
 
 # macOS
 .DS_Store
+.local/
+Library/
 
 # dotenv files
 .env

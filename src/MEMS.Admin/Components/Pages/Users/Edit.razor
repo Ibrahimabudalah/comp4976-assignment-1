@@ -4,6 +4,7 @@
 @inject RoleManager<IdentityRole> RoleManager
 @inject IMunicipalityRepository MunicipalityRepo
 @inject NavigationManager Navigation
+@inject ILogger<Edit> Logger
 
 <PageTitle>Edit Administrator - MEMS Admin</PageTitle>
 
@@ -167,13 +168,28 @@
                 }
             }
 
-            // Sync roles
+            // Sync roles with checked IdentityResults
             var currentRoles = await UserManager.GetRolesAsync(user);
-            await UserManager.RemoveFromRolesAsync(user, currentRoles);
+            if (currentRoles.Any())
+            {
+                var removeResult = await UserManager.RemoveFromRolesAsync(user, currentRoles);
+                if (!removeResult.Succeeded)
+                {
+                    errorMessage = "Failed to clear existing roles: " + string.Join("; ", removeResult.Errors.Select(e => e.Description));
+                    isSubmitting = false;
+                    return;
+                }
+            }
 
             if (selectedRole == AdminRoles.SuperAdmin)
             {
-                await UserManager.AddToRoleAsync(user, AdminRoles.SuperAdmin);
+                var addRoleResult = await UserManager.AddToRoleAsync(user, AdminRoles.SuperAdmin);
+                if (!addRoleResult.Succeeded)
+                {
+                    errorMessage = "Failed to assign Super Admin role: " + string.Join("; ", addRoleResult.Errors.Select(e => e.Description));
+                    isSubmitting = false;
+                    return;
+                }
             }
             else if (model.MunicipalityId.HasValue)
             {
@@ -183,18 +199,39 @@
                     var specificRole = AdminRoles.ForMunicipality(municipality.Name);
                     if (!await RoleManager.RoleExistsAsync(specificRole))
                     {
-                        await RoleManager.CreateAsync(new IdentityRole(specificRole));
+                        var createRoleResult = await RoleManager.CreateAsync(new IdentityRole(specificRole));
+                        if (!createRoleResult.Succeeded)
+                        {
+                            errorMessage = $"Failed to create role '{specificRole}': " + string.Join("; ", createRoleResult.Errors.Select(e => e.Description));
+                            isSubmitting = false;
+                            return;
+                        }
                     }
-                    await UserManager.AddToRoleAsync(user, specificRole);
+
+                    var specificRoleResult = await UserManager.AddToRoleAsync(user, specificRole);
+                    if (!specificRoleResult.Succeeded)
+                    {
+                        errorMessage = $"Failed to assign role '{specificRole}': " + string.Join("; ", specificRoleResult.Errors.Select(e => e.Description));
+                        isSubmitting = false;
+                        return;
+                    }
                 }
-                await UserManager.AddToRoleAsync(user, AdminRoles.MunicipalityAdmin);
+
+                var adminRoleResult = await UserManager.AddToRoleAsync(user, AdminRoles.MunicipalityAdmin);
+                if (!adminRoleResult.Succeeded)
+                {
+                    errorMessage = $"Failed to assign role '{AdminRoles.MunicipalityAdmin}': " + string.Join("; ", adminRoleResult.Errors.Select(e => e.Description));
+                    isSubmitting = false;
+                    return;
+                }
             }
 
             Navigation.NavigateTo("users");
         }
         catch (Exception ex)
         {
-            errorMessage = $"An unexpected error occurred: {ex.Message}";
+            Logger.LogError(ex, "Unexpected error updating user {UserId}", Id);
+            errorMessage = "An unexpected error occurred while updating the administrator. Please try again.";
         }
         finally
         {

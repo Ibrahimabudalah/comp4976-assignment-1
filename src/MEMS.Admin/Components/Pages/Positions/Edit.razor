@@ -4,6 +4,7 @@
 @inject IMunicipalityRepository MunicipalityRepo
 @inject TenantAuthorizationService AuthService
 @inject NavigationManager Navigation
+@inject ILogger<Edit> Logger
 
 <PageTitle>Edit Position - MEMS Admin</PageTitle>
 
@@ -132,7 +133,8 @@
         }
         catch (Exception ex)
         {
-            errorMessage = $"Error updating position: {ex.Message}";
+            Logger.LogError(ex, "Unexpected error updating position {PositionId}", Id);
+            errorMessage = "An unexpected error occurred while updating the position. Please try again.";
         }
         finally
         {

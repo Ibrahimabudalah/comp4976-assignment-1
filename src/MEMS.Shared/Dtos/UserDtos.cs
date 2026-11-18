@@ -62,3 +62,13 @@ public class LoginRequestDto
     [DataType(DataType.Password)]
     public string Password { get; set; } = string.Empty;
 }
+
+public class LoginResponseDto
+{
+    public string Token { get; set; } = string.Empty;
+    public string UserName { get; set; } = string.Empty;
+    public List<string> Roles { get; set; } = new();
+    public int? MunicipalityId { get; set; }
+    public string? TenantSlug { get; set; }
+    public DateTime Expiration { get; set; }
+}

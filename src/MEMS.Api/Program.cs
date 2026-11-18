@@ -1,5 +1,8 @@
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 using MEMS.Api.Middleware;
 using MEMS.Data;
@@ -44,6 +47,32 @@ builder.Services.AddScoped<IMunicipalityRepository, MunicipalityRepository>();
 builder.Services.AddScoped<IPositionRepository, PositionRepository>();
 builder.Services.AddScoped<ICandidateRepository, CandidateRepository>();
 
+// JWT Authentication
+var jwtKey = builder.Configuration["Jwt:Key"] ?? "MEMS_SuperSecret_Key_For_Jwt_Auth_Token_Signing_2026_COMP4976!";
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "MEMS.Api";
+var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "MEMS.Clients";
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = jwtIssuer,
+        ValidAudience = jwtAudience,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+    };
+});
+
+builder.Services.AddAuthorization();
+
 // CORS for Blazor WASM Public site & Admin clients
 builder.Services.AddCors(options =>
 {
@@ -71,6 +100,7 @@ app.MapOpenApi();
 app.MapScalarApiReference();
 
 app.UseCors();
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

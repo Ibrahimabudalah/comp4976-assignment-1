@@ -1,6 +1,9 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using MEMS.Data.Entities;
 using MEMS.Data.Repositories;
+using MEMS.Shared.Constants;
 using MEMS.Shared.Dtos;
 
 namespace MEMS.Api.Controllers;
@@ -11,13 +14,16 @@ public class PositionsController : ControllerBase
 {
     private readonly IPositionRepository _positionRepository;
     private readonly IMunicipalityRepository _municipalityRepository;
+    private readonly UserManager<ApplicationUser> _userManager;
 
     public PositionsController(
         IPositionRepository positionRepository,
-        IMunicipalityRepository municipalityRepository)
+        IMunicipalityRepository municipalityRepository,
+        UserManager<ApplicationUser> userManager)
     {
         _positionRepository = positionRepository;
         _municipalityRepository = municipalityRepository;
+        _userManager = userManager;
     }
 
 
@@ -51,11 +57,19 @@ public class PositionsController : ControllerBase
 
     // Creates a new position for the specified tenant.
     [HttpPost("api/{tenantSlug}/positions")]
+    [Authorize]
     [ProducesResponseType(typeof(PositionDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PositionDto>> CreateForTenant(string tenantSlug, [FromBody] CreatePositionDto dto)
     {
+        if (!await CanWriteToTenantAsync(tenantSlug))
+        {
+            return Forbid();
+        }
+
         var tenant = await _municipalityRepository.GetBySlugAsync(tenantSlug);
         if (tenant == null) return NotFound(new { message = $"Tenant '{tenantSlug}' was not found." });
 
@@ -65,11 +79,19 @@ public class PositionsController : ControllerBase
 
     // Updates a position with tenant isolation check.
     [HttpPut("api/{tenantSlug}/positions/{id:int}")]
+    [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateForTenant(string tenantSlug, int id, [FromBody] UpdatePositionDto dto)
     {
+        if (!await CanWriteToTenantAsync(tenantSlug))
+        {
+            return Forbid();
+        }
+
         var position = await _positionRepository.GetByIdAsync(id);
         if (position == null || !position.Municipality.TenantSlug.Equals(tenantSlug, StringComparison.OrdinalIgnoreCase))
         {
@@ -82,11 +104,19 @@ public class PositionsController : ControllerBase
 
     // Deletes a position with tenant isolation check.
     [HttpDelete("api/{tenantSlug}/positions/{id:int}")]
+    [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteForTenant(string tenantSlug, int id)
     {
+        if (!await CanWriteToTenantAsync(tenantSlug))
+        {
+            return Forbid();
+        }
+
         var position = await _positionRepository.GetByIdAsync(id);
         if (position == null || !position.Municipality.TenantSlug.Equals(tenantSlug, StringComparison.OrdinalIgnoreCase))
         {
@@ -116,16 +146,22 @@ public class PositionsController : ControllerBase
     }
 
     [HttpPost("api/positions")]
+    [Authorize(Roles = AdminRoles.SuperAdmin)]
     [ProducesResponseType(typeof(PositionDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<PositionDto>> Create([FromBody] CreatePositionDto dto)
     {
         return await CreateInternal(dto);
     }
 
     [HttpPut("api/positions/{id:int}")]
+    [Authorize(Roles = AdminRoles.SuperAdmin)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Update(int id, [FromBody] UpdatePositionDto dto)
     {
@@ -133,12 +169,37 @@ public class PositionsController : ControllerBase
     }
 
     [HttpDelete("api/positions/{id:int}")]
+    [Authorize(Roles = AdminRoles.SuperAdmin)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(int id)
     {
         return await DeleteInternal(id);
+    }
+
+    // Tenant write scoping authorization helper
+    private async Task<bool> CanWriteToTenantAsync(string tenantSlug)
+    {
+        if (User.IsInRole(AdminRoles.SuperAdmin))
+            return true;
+
+        var claimSlug = User.FindFirst("tenantSlug")?.Value;
+        if (!string.IsNullOrEmpty(claimSlug))
+        {
+            return claimSlug.Equals(tenantSlug, StringComparison.OrdinalIgnoreCase);
+        }
+
+        var userName = User.Identity?.Name;
+        if (string.IsNullOrEmpty(userName)) return false;
+
+        var user = await _userManager.FindByNameAsync(userName);
+        if (user?.MunicipalityId == null) return false;
+
+        var tenant = await _municipalityRepository.GetByIdAsync(user.MunicipalityId.Value);
+        return tenant != null && tenant.TenantSlug.Equals(tenantSlug, StringComparison.OrdinalIgnoreCase);
     }
 
     // Shared implementation helpers

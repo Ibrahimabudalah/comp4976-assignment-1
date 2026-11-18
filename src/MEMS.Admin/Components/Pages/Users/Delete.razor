@@ -3,6 +3,7 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject TenantAuthorizationService AuthService
 @inject NavigationManager Navigation
+@inject ILogger<Delete> Logger
 
 <PageTitle>Delete Administrator - MEMS Admin</PageTitle>
 
@@ -100,7 +101,8 @@
         }
         catch (Exception ex)
         {
-            errorMessage = $"An unexpected error occurred: {ex.Message}";
+            Logger.LogError(ex, "Unexpected error deleting user {UserId}", Id);
+            errorMessage = "An unexpected error occurred while deleting the administrator. Please try again.";
         }
         finally
         {

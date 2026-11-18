@@ -4,6 +4,7 @@
 @inject TenantAuthorizationService AuthService
 @inject ImageUploadService ImageUploadService
 @inject NavigationManager Navigation
+@inject ILogger<Delete> Logger
 
 <PageTitle>Delete Candidate - MEMS Admin</PageTitle>
 
@@ -98,7 +99,8 @@
         }
         catch (Exception ex)
         {
-            errorMessage = $"An unexpected error occurred: {ex.Message}";
+            Logger.LogError(ex, "Unexpected error deleting candidate {CandidateId}", Id);
+            errorMessage = "An unexpected error occurred while deleting the candidate. Please try again.";
         }
         finally
         {

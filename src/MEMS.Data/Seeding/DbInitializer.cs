@@ -48,7 +48,7 @@ public static class DbInitializer
 
     private static async Task SeedDomainDataAsync(ApplicationDbContext context)
     {
-        var electionDate = new DateTime(2026, 10, 17);
+        var electionDate = new DateTime(2027, 10, 16);
 
         // Required 3 Tenants + A1 Tenant
         var burnaby = new Municipality

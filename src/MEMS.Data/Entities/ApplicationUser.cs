@@ -5,6 +5,11 @@ namespace MEMS.Data.Entities;
 
 public class ApplicationUser : IdentityUser
 {
+    public ApplicationUser()
+    {
+        LockoutEnabled = true;
+    }
+
     [StringLength(100)]
     public string? FullName { get; set; }
 

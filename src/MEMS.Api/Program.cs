@@ -38,9 +38,16 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     options.Password.RequireUppercase = true;
     options.Password.RequireNonAlphanumeric = true;
     options.Password.RequiredLength = 8;
+
+    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
+    options.Lockout.MaxFailedAccessAttempts = 5;
+    options.Lockout.AllowedForNewUsers = true;
 })
 .AddRoles<IdentityRole>()
+.AddSignInManager()
 .AddEntityFrameworkStores<ApplicationDbContext>();
+
+builder.Services.AddHttpContextAccessor();
 
 // Repositories
 builder.Services.AddScoped<IMunicipalityRepository, MunicipalityRepository>();
@@ -48,7 +55,8 @@ builder.Services.AddScoped<IPositionRepository, PositionRepository>();
 builder.Services.AddScoped<ICandidateRepository, CandidateRepository>();
 
 // JWT Authentication
-var jwtKey = builder.Configuration["Jwt:Key"] ?? "MEMS_SuperSecret_Key_For_Jwt_Auth_Token_Signing_2026_COMP4976!";
+var jwtKey = builder.Configuration["Jwt:Key"]
+    ?? throw new InvalidOperationException("Jwt:Key is not configured. A secure key must be provided via configuration or user secrets.");
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "MEMS.Api";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "MEMS.Clients";
 

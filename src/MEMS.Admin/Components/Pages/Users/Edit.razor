@@ -168,28 +168,11 @@
                 }
             }
 
-            // Sync roles with checked IdentityResults
-            var currentRoles = await UserManager.GetRolesAsync(user);
-            if (currentRoles.Any())
-            {
-                var removeResult = await UserManager.RemoveFromRolesAsync(user, currentRoles);
-                if (!removeResult.Succeeded)
-                {
-                    errorMessage = "Failed to clear existing roles: " + string.Join("; ", removeResult.Errors.Select(e => e.Description));
-                    isSubmitting = false;
-                    return;
-                }
-            }
-
+            // Determine new roles to assign
+            var targetRoles = new List<string>();
             if (selectedRole == AdminRoles.SuperAdmin)
             {
-                var addRoleResult = await UserManager.AddToRoleAsync(user, AdminRoles.SuperAdmin);
-                if (!addRoleResult.Succeeded)
-                {
-                    errorMessage = "Failed to assign Super Admin role: " + string.Join("; ", addRoleResult.Errors.Select(e => e.Description));
-                    isSubmitting = false;
-                    return;
-                }
+                targetRoles.Add(AdminRoles.SuperAdmin);
             }
             else if (model.MunicipalityId.HasValue)
             {
@@ -207,20 +190,33 @@
                             return;
                         }
                     }
-
-                    var specificRoleResult = await UserManager.AddToRoleAsync(user, specificRole);
-                    if (!specificRoleResult.Succeeded)
-                    {
-                        errorMessage = $"Failed to assign role '{specificRole}': " + string.Join("; ", specificRoleResult.Errors.Select(e => e.Description));
-                        isSubmitting = false;
-                        return;
-                    }
+                    targetRoles.Add(specificRole);
                 }
+                targetRoles.Add(AdminRoles.MunicipalityAdmin);
+            }
 
-                var adminRoleResult = await UserManager.AddToRoleAsync(user, AdminRoles.MunicipalityAdmin);
-                if (!adminRoleResult.Succeeded)
+            // Add new roles first so user is never left without roles if an addition fails
+            var currentRoles = await UserManager.GetRolesAsync(user);
+            var rolesToAdd = targetRoles.Except(currentRoles).ToList();
+            if (rolesToAdd.Any())
+            {
+                var addResult = await UserManager.AddToRolesAsync(user, rolesToAdd);
+                if (!addResult.Succeeded)
                 {
-                    errorMessage = $"Failed to assign role '{AdminRoles.MunicipalityAdmin}': " + string.Join("; ", adminRoleResult.Errors.Select(e => e.Description));
+                    errorMessage = "Failed to assign new role(s): " + string.Join("; ", addResult.Errors.Select(e => e.Description));
+                    isSubmitting = false;
+                    return;
+                }
+            }
+
+            // Remove obsolete roles
+            var rolesToRemove = currentRoles.Except(targetRoles).ToList();
+            if (rolesToRemove.Any())
+            {
+                var removeResult = await UserManager.RemoveFromRolesAsync(user, rolesToRemove);
+                if (!removeResult.Succeeded)
+                {
+                    errorMessage = "Failed to remove previous role(s): " + string.Join("; ", removeResult.Errors.Select(e => e.Description));
                     isSubmitting = false;
                     return;
                 }

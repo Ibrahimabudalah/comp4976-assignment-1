@@ -17,17 +17,20 @@ namespace MEMS.Api.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly IMunicipalityRepository _municipalityRepository;
     private readonly IConfiguration _configuration;
     private readonly ILogger<AuthController> _logger;
 
     public AuthController(
         UserManager<ApplicationUser> userManager,
+        SignInManager<ApplicationUser> signInManager,
         IMunicipalityRepository municipalityRepository,
         IConfiguration configuration,
         ILogger<AuthController> logger)
     {
         _userManager = userManager;
+        _signInManager = signInManager;
         _municipalityRepository = municipalityRepository;
         _configuration = configuration;
         _logger = logger;
@@ -47,7 +50,25 @@ public class AuthController : ControllerBase
             return BadRequest(ModelState);
 
         var user = await _userManager.FindByNameAsync(dto.UserName);
-        if (user == null || !await _userManager.CheckPasswordAsync(user, dto.Password))
+        if (user == null)
+        {
+            _logger.LogWarning("Failed login attempt for unknown user: {UserName}", dto.UserName);
+            return Unauthorized(new { message = "Invalid username or password." });
+        }
+
+        if (!user.LockoutEnabled)
+        {
+            await _userManager.SetLockoutEnabledAsync(user, true);
+        }
+
+        var result = await _signInManager.CheckPasswordSignInAsync(user, dto.Password, lockoutOnFailure: true);
+        if (result.IsLockedOut)
+        {
+            _logger.LogWarning("User account locked out due to repeated failed attempts: {UserName}", dto.UserName);
+            return Unauthorized(new { message = "Invalid username or password." });
+        }
+
+        if (!result.Succeeded)
         {
             _logger.LogWarning("Failed login attempt for user: {UserName}", dto.UserName);
             return Unauthorized(new { message = "Invalid username or password." });
@@ -83,7 +104,8 @@ public class AuthController : ControllerBase
             claims.Add(new Claim("municipalityId", user.MunicipalityId.Value.ToString()));
         }
 
-        var keyString = _configuration["Jwt:Key"] ?? "MEMS_SuperSecret_Key_For_Jwt_Auth_Token_Signing_2026_COMP4976!";
+        var keyString = _configuration["Jwt:Key"]
+            ?? throw new InvalidOperationException("Jwt:Key is not configured.");
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(keyString));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
         var expires = DateTime.UtcNow.AddHours(8);

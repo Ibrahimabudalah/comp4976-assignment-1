@@ -85,7 +85,7 @@
 
                 @if (model.CreateInitialAdmin)
                 {
-                    <div class="bg-light p-3 rounded mb-4 border">
+                    <div class="bg-body-tertiary p-3 rounded mb-4 border">
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Admin Username *</label>
@@ -150,6 +150,13 @@
                     return;
                 }
 
+                if (await UserManager.FindByNameAsync(model.AdminUserName.Trim()) != null)
+                {
+                    errorMessage = $"A user with username '{model.AdminUserName.Trim()}' already exists.";
+                    isSubmitting = false;
+                    return;
+                }
+
                 if (string.IsNullOrWhiteSpace(model.AdminPassword))
                 {
                     errorMessage = "Admin password is required when creating an initial administrator.";
@@ -157,11 +164,16 @@
                     return;
                 }
 
-                if (model.AdminPassword.Trim().Length < 8)
+                var tempUser = new ApplicationUser { UserName = model.AdminUserName.Trim() };
+                foreach (var validator in UserManager.PasswordValidators)
                 {
-                    errorMessage = "Admin password must be at least 8 characters.";
-                    isSubmitting = false;
-                    return;
+                    var passResult = await validator.ValidateAsync(UserManager, tempUser, model.AdminPassword);
+                    if (!passResult.Succeeded)
+                    {
+                        errorMessage = string.Join("; ", passResult.Errors.Select(e => e.Description));
+                        isSubmitting = false;
+                        return;
+                    }
                 }
             }
 

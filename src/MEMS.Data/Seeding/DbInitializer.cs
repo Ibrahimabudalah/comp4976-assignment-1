@@ -393,7 +393,8 @@ public static class DbInitializer
                 Email = $"{userName.ToLower()}@mems.local",
                 EmailConfirmed = true,
                 FullName = fullName,
-                MunicipalityId = municipalityId
+                MunicipalityId = municipalityId,
+                LockoutEnabled = true
             };
 
             var createResult = await userManager.CreateAsync(user, password);
@@ -403,6 +404,10 @@ public static class DbInitializer
         {
             user.FullName = fullName;
             user.MunicipalityId = municipalityId;
+            if (!user.LockoutEnabled)
+            {
+                await userManager.SetLockoutEnabledAsync(user, true);
+            }
             var updateResult = await userManager.UpdateAsync(user);
             EnsureSuccess(updateResult, $"Update user {userName}");
         }

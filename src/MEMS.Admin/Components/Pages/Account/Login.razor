@@ -1,5 +1,6 @@
 @page "/login"
 @attribute [AllowAnonymous]
+@attribute [ExcludeFromInteractiveRouting]
 @inject NavigationManager Navigation
 
 <PageTitle>Admin Login - MEMS</PageTitle>
@@ -20,7 +21,7 @@
                         </div>
                     }
 
-                    <form action="/account/login?returnUrl=@Uri.EscapeDataString(returnUrl)" method="post">
+                    <form action="/account/login?returnUrl=@Uri.EscapeDataString(returnUrl ?? "/")" method="post">
                         <AntiforgeryToken />
 
                         <div class="mb-3">
@@ -53,7 +54,7 @@
 
 @code {
     [SupplyParameterFromQuery]
-    private string returnUrl { get; set; } = "/";
+    private string? returnUrl { get; set; } = "/";
 
     [SupplyParameterFromQuery]
     private string? error { get; set; }

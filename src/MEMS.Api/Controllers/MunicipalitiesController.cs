@@ -190,11 +190,20 @@ public class MunicipalitiesController : ControllerBase
             var role = await _roleManager.FindByNameAsync(oldRoleName);
             if (role != null)
             {
-                await _roleManager.SetRoleNameAsync(role, newRoleName);
+                var setResult = await _roleManager.SetRoleNameAsync(role, newRoleName);
+                if (!setResult.Succeeded)
+                {
+                    _logger.LogError("Failed to set role name to {NewName}: {Errors}",
+                        newRoleName, string.Join(", ", setResult.Errors.Select(e => e.Description)));
+                    return BadRequest(new { message = "Failed to update municipality role name." });
+                }
+
                 var updateResult = await _roleManager.UpdateAsync(role);
                 if (!updateResult.Succeeded)
                 {
-                    _logger.LogError("Failed to update role name to {NewName}", newRoleName);
+                    _logger.LogError("Failed to update role name to {NewName}: {Errors}",
+                        newRoleName, string.Join(", ", updateResult.Errors.Select(e => e.Description)));
+                    return BadRequest(new { message = "Failed to synchronize role updates." });
                 }
             }
         }
@@ -223,7 +232,12 @@ public class MunicipalitiesController : ControllerBase
             var role = await _roleManager.FindByNameAsync(AdminRoles.ForMunicipality(existing.Name));
             if (role != null)
             {
-                await _roleManager.DeleteAsync(role);
+                var roleDeleteResult = await _roleManager.DeleteAsync(role);
+                if (!roleDeleteResult.Succeeded)
+                {
+                    _logger.LogWarning("Failed to delete associated role for municipality {Name}: {Errors}",
+                        existing.Name, string.Join(", ", roleDeleteResult.Errors.Select(e => e.Description)));
+                }
             }
 
             return NoContent();

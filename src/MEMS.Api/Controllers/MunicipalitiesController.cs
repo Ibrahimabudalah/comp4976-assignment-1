@@ -36,7 +36,7 @@ public class MunicipalitiesController : ControllerBase
     public async Task<ActionResult<List<MunicipalityDto>>> GetAll()
     {
         var list = await _repository.GetAllAsync();
-        return Ok(list.Select(MapToDto).ToList());
+        return Ok(list.Where(m => CanReadTenant(m.TenantSlug)).Select(MapToDto).ToList());
     }
 
     // Gets a municipality by its ID.
@@ -47,6 +47,7 @@ public class MunicipalitiesController : ControllerBase
     {
         var item = await _repository.GetByIdAsync(id);
         if (item == null) return NotFound(new { message = $"Municipality with ID {id} was not found." });
+        if (!CanReadTenant(item.TenantSlug)) return Forbid();
         return Ok(MapToDto(item));
     }
 
@@ -58,6 +59,7 @@ public class MunicipalitiesController : ControllerBase
     {
         var item = await _repository.GetBySlugAsync(tenantSlug);
         if (item == null) return NotFound(new { message = $"Tenant '{tenantSlug}' was not found." });
+        if (!CanReadTenant(item.TenantSlug)) return Forbid();
         return Ok(MapToDto(item));
     }
 
@@ -247,6 +249,12 @@ public class MunicipalitiesController : ControllerBase
             return BadRequest(new { message = ex.Message });
         }
     }
+
+    // Tenant read scoping: anonymous callers (the public site) may read any tenant; a signed-in admin only their own.
+    private bool CanReadTenant(string tenantSlug) =>
+        User.Identity?.IsAuthenticated != true
+        || User.IsInRole(AdminRoles.SuperAdmin)
+        || string.Equals(User.FindFirst("tenantSlug")?.Value, tenantSlug, StringComparison.OrdinalIgnoreCase);
 
     private static MunicipalityDto MapToDto(Municipality m) => new()
     {

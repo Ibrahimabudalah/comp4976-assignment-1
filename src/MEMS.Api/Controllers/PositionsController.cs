@@ -33,6 +33,8 @@ public class PositionsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<List<PositionDto>>> GetByTenant(string tenantSlug)
     {
+        if (!await CanReadTenantAsync(tenantSlug)) return Forbid();
+
         var tenant = await _municipalityRepository.GetBySlugAsync(tenantSlug);
         if (tenant == null) return NotFound(new { message = $"Tenant '{tenantSlug}' was not found." });
 
@@ -46,6 +48,8 @@ public class PositionsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PositionDto>> GetByTenantAndId(string tenantSlug, int id)
     {
+        if (!await CanReadTenantAsync(tenantSlug)) return Forbid();
+
         var position = await _positionRepository.GetByIdAsync(id);
         if (position == null || !position.Municipality.TenantSlug.Equals(tenantSlug, StringComparison.OrdinalIgnoreCase))
         {
@@ -131,6 +135,8 @@ public class PositionsController : ControllerBase
     [ProducesResponseType(typeof(List<PositionDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<PositionDto>>> GetAll([FromQuery] int? municipalityId)
     {
+        if (!TryScopeToOwnMunicipality(ref municipalityId)) return Forbid();
+
         var list = await _positionRepository.GetAllAsync(municipalityId);
         return Ok(list.Select(MapToDto).ToList());
     }
@@ -142,6 +148,7 @@ public class PositionsController : ControllerBase
     {
         var item = await _positionRepository.GetByIdAsync(id);
         if (item == null) return NotFound(new { message = $"Position with ID {id} was not found." });
+        if (!await CanReadTenantAsync(item.Municipality.TenantSlug)) return Forbid();
         return Ok(MapToDto(item));
     }
 
@@ -178,6 +185,21 @@ public class PositionsController : ControllerBase
     public async Task<IActionResult> Delete(int id)
     {
         return await DeleteInternal(id);
+    }
+
+    // Tenant read scoping: anonymous callers (the public site) may read any tenant; a signed-in admin only their own.
+    private async Task<bool> CanReadTenantAsync(string tenantSlug) =>
+        User.Identity?.IsAuthenticated != true || await CanWriteToTenantAsync(tenantSlug);
+
+    // For the global list routes: a signed-in Municipality Admin is limited to their own municipality.
+    // Returns false when they ask for another municipality (or have no tenant claim).
+    private bool TryScopeToOwnMunicipality(ref int? municipalityId)
+    {
+        if (User.Identity?.IsAuthenticated != true || User.IsInRole(AdminRoles.SuperAdmin)) return true;
+        if (!int.TryParse(User.FindFirst("municipalityId")?.Value, out var own)) return false;
+        if (municipalityId.HasValue && municipalityId.Value != own) return false;
+        municipalityId = own;
+        return true;
     }
 
     // Tenant write scoping authorization helper

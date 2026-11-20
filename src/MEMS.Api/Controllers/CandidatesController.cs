@@ -38,6 +38,8 @@ public class CandidatesController : ControllerBase
         [FromQuery] string? search = null,
         [FromQuery] string? position = null)
     {
+        if (!await CanReadTenantAsync(tenantSlug)) return Forbid();
+
         var tenant = await _municipalityRepository.GetBySlugAsync(tenantSlug);
         if (tenant == null) return NotFound(new { message = $"Tenant '{tenantSlug}' was not found." });
 
@@ -51,6 +53,8 @@ public class CandidatesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<CandidateDto>> GetByTenantAndId(string tenantSlug, int id)
     {
+        if (!await CanReadTenantAsync(tenantSlug)) return Forbid();
+
         var candidate = await _candidateRepository.GetByIdAsync(id);
         if (candidate == null || !candidate.Municipality.TenantSlug.Equals(tenantSlug, StringComparison.OrdinalIgnoreCase))
         {
@@ -67,6 +71,8 @@ public class CandidatesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<CandidateComparisonDto>> CompareForTenant(string tenantSlug, [FromBody] int[] candidateIds)
     {
+        if (!await CanReadTenantAsync(tenantSlug)) return Forbid();
+
         var tenant = await _municipalityRepository.GetBySlugAsync(tenantSlug);
         if (tenant == null) return NotFound(new { message = $"Tenant '{tenantSlug}' was not found." });
 
@@ -177,6 +183,8 @@ public class CandidatesController : ControllerBase
         [FromQuery] int? positionId,
         [FromQuery] string? search)
     {
+        if (!TryScopeToOwnMunicipality(ref municipalityId)) return Forbid();
+
         var list = await _candidateRepository.GetAllAsync(municipalityId, positionId, search);
         return Ok(list.Select(MapToDto).ToList());
     }
@@ -188,6 +196,7 @@ public class CandidatesController : ControllerBase
     {
         var item = await _candidateRepository.GetByIdAsync(id);
         if (item == null) return NotFound(new { message = $"Candidate with ID {id} was not found." });
+        if (!await CanReadTenantAsync(item.Municipality.TenantSlug)) return Forbid();
         return Ok(MapToDto(item));
     }
 
@@ -224,6 +233,21 @@ public class CandidatesController : ControllerBase
     public async Task<IActionResult> Delete(int id)
     {
         return await DeleteInternal(id);
+    }
+
+    // Tenant read scoping: anonymous callers (the public site) may read any tenant; a signed-in admin only their own.
+    private async Task<bool> CanReadTenantAsync(string tenantSlug) =>
+        User.Identity?.IsAuthenticated != true || await CanWriteToTenantAsync(tenantSlug);
+
+    // For the global list routes: a signed-in Municipality Admin is limited to their own municipality.
+    // Returns false when they ask for another municipality (or have no tenant claim).
+    private bool TryScopeToOwnMunicipality(ref int? municipalityId)
+    {
+        if (User.Identity?.IsAuthenticated != true || User.IsInRole(AdminRoles.SuperAdmin)) return true;
+        if (!int.TryParse(User.FindFirst("municipalityId")?.Value, out var own)) return false;
+        if (municipalityId.HasValue && municipalityId.Value != own) return false;
+        municipalityId = own;
+        return true;
     }
 
     // Tenant write scoping authorization helper

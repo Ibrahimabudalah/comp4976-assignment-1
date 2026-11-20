@@ -1,177 +1,252 @@
 Municipal Elections Management System (MEMS)
-COMP 4976 - Assignment 1
+COMP 4976 - Assignment 2
 BCIT - Computer Systems Technology
 
 
 
 ##PROJECT DESCRIPTION
 
-MEMS is an ASP.NET Core MVC (.NET 10) web application
-for managing municipal elections.
+MEMS is a multi-tenant, cloud-native .NET 10 system
+for managing municipal elections, orchestrated with
+.NET Aspire. Each municipality is a tenant, identified
+by a URL segment (its slug): /burnaby, /surrey,
+/richmond. A new municipality needs no new
+application: it is just a new tenant created in the
+admin portal.
 
-Administrators log in to manage municipalities,
-positions, and candidates. Super Admin users manage
-every municipality and every administrator account.
-Municipality admin users manage only the municipality
-assigned to them.
+- Admin portal (Blazor Server): one portal shared by
+  every tenant. Super Admin manages all municipalities,
+  positions, candidates and administrators. A
+  municipality admin manages only their own
+  municipality's positions and candidates.
+- Public website (Blazor WebAssembly): a separate
+  experience per tenant. Visitors browse
+  municipalities, positions and candidates, search by
+  name, filter by municipality and position, view
+  profiles and photos, compare candidates, and build a
+  printable personal voting guide, all without logging
+  in.
+- Web API (ASP.NET Core): all public data goes through
+  it. It is tenant-scoped (/api/{slug}/...), uses JWT
+  authentication, and is documented with OpenAPI and
+  Scalar.
+- Election privacy: voting guide selections stay in
+  the browser's session storage. They are never sent
+  to the API, never stored in SQL Server, and are
+  cleared when the browser session ends.
 
-Public users can browse municipalities and positions,
-search candidates by name, filter by municipality and
-position, view candidate profiles, compare candidates
-side by side, and build a voting guide they can print
-or download as a PDF, all without logging in.
+Projects (MEMS.sln, all under src/):
+  MEMS.AppHost          .NET Aspire orchestration
+  MEMS.ServiceDefaults  telemetry, health checks,
+                        service discovery
+  MEMS.Admin            Blazor Server admin portal
+  MEMS.Public           Blazor WebAssembly public site
+  MEMS.Api              ASP.NET Core Web API
+  MEMS.Data             EF Core, migrations,
+                        repositories, seeding
+  MEMS.Shared           DTOs and shared constants
 
-Technologies: ASP.NET Core MVC, Entity Framework Core
-Code First, SQLite, ASP.NET Core Identity, Bootstrap,
-QuestPDF, Azure App Service.
+Technologies: .NET 10, .NET Aspire, Blazor Server,
+Blazor WebAssembly, ASP.NET Core Web API, Entity
+Framework Core Code First, SQL Server, ASP.NET Core
+Identity, JWT bearer, OpenTelemetry, Bootstrap 5,
+Blazored.SessionStorage.
+
+The full write-up (architecture diagram, ERD, API
+documentation, deficiency resolution report, Copilot
+usage, screenshots) is in the separate documentation
+file submitted with this project.
 
 
 ##STUDENT CONTRIBUTIONS
 
 Ibrahim Abdulah
-- Project setup, EF Core models, and initial migration.
-- ASP.NET Core Identity, login, roles, and seeding.
-- Admin area: dashboard and CRUD for municipalities,
-  positions, and candidates.
-- Image upload service and municipality-scoped
-  authorization for admin users.
-- Deployed project to Azure (check link below)
+- .NET Aspire solution: AppHost orchestration of SQL
+  Server, API, admin portal and public site;
+  ServiceDefaults (OpenTelemetry, health checks).
+- SQL Server data layer: EF Core entities, migrations,
+  repositories, and seed data.
+- MEMS.Api: tenant-scoped endpoints for
+  municipalities, positions and candidates; JWT login;
+  write authorization per tenant; global exception
+  handling; OpenAPI and Scalar.
+- MEMS.Admin: Blazor Server conversion of every
+  Assignment 1 admin feature (dashboard, tenant,
+  position, candidate and user management, logo and
+  photo uploads), with tenant scoping, account lockout
+  and access-denied handling.
+- Assignment 1 deficiency fixes in the admin portal
+  and API: checked role results, initial admin when
+  creating a municipality, tenant-only admin views.
 
 Steven Doan
-- Configuration fixes: connection string and seed
-  passwords in appsettings.Development.json.
-- Public website: municipality pages, candidate
-  search, filters, and profile pages.
-- Session-based voting guide with printable layout.
-- Navigation, colour scheme, and responsive layout.
-- Azure deployment configuration (persistent database
-  and upload folders).
-- Expanded seed data.
-- Bonus features: dark mode, QuestPDF voting guide
-  export, administrator and admin group management,
-  candidate comparison, and mobile-first layout.
+- MEMS.Public: Blazor WebAssembly public site with
+  tenant resolution from the URL, per-tenant branding,
+  municipality, position and candidate directories,
+  search and filters, candidate profiles and
+  comparison.
+- Personal voting guide in session storage, with the
+  seat limit per position, one municipality per guide,
+  and a printable / save-as-PDF layout. Fixes the three
+  Assignment 1 voting guide deductions.
+- Election privacy design: no ballot data on the
+  server, no selections in any API request.
+- Dark mode, mobile-first layout, accessibility
+  checks, and friendly error handling on the public
+  site.
+- Testing and review of the full stack (handoff and
+  issue lists for the admin portal and API), plus the
+  JWT signing-key fix and tenant-scoped API reads.
+- Documentation: system documentation, deficiency
+  resolution report, Copilot instructions, and this
+  readme.
 
 
 ##BONUS FEATURES
 
-1. Dark mode: a navbar toggle on public and admin
-   pages. It follows the device theme by default,
-   remembers the choice, and prints in light mode.
-2. QuestPDF export: "Download PDF" on My Guide creates
-   a PDF of the voting guide on the server, grouped by
-   municipality, with candidate photos.
-3. User / Role Management: Super Admin can add, edit,
-   and delete administrators, reset passwords, and
-   assign each one to Super Admin or a municipality
-   admin group. Every municipality gets its own
-   "{Name} Admin" group, which is created, renamed, and
-   deleted together with the municipality.
-4. Candidate comparison: tick 2 or 3 candidates on the
-   Candidates page and press "Compare selected" to see
-   them side by side.
+1. Dark mode: a navbar toggle on the public site. It
+   follows the device theme by default, remembers the
+   choice, and always prints in light mode.
+2. Candidate comparison: tick 2 or 3 candidates on the
+   Candidates page and press "Compare selected" to
+   see them side by side. It runs in the browser, so
+   no picks are sent to the server.
+3. Per-tenant branding: each municipality's public site
+   has its own accent colour (generated from its slug),
+   logo and header. New tenants get one automatically.
+4. User / role management: Super Admin can add, edit
+   and delete administrators, assign each one to a
+   municipality, and create a municipality's first
+   administrator while creating the municipality.
 5. Mobile-first enhancements: tables turn into
-   labelled cards on phones, buttons are at least 44px
-   tall on phones, and the navbar collapses on tablets.
-   Tested at common phone widths from 320px to 932px.
+   labelled cards on phones, tap targets are at least
+   44px, and nothing scrolls sideways from 320px wide.
+
+Note: the Assignment 1 server-side QuestPDF export was
+replaced by the browser's "Print / Save as PDF".
+Building the PDF on the server would mean sending the
+voter's selections to the backend, which the
+election-privacy requirements forbid.
 
 
 ##INCOMPLETE FEATURES
 
-- N/A
+- N/A. Two deliberate design choices are explained in
+  the documentation:
+  - The WebAssembly public site runs in the browser,
+    so it can't read Aspire's service-discovery
+    environment variables. Its API address is set in
+    MEMS.Public/wwwroot/appsettings.json, matching the
+    port the AppHost starts the API on.
+  - The admin portal runs as its own application on
+    its own port (http://localhost:5002) rather than
+    under a /admin path.
 
 
 ##MAJOR CHALLENGES
 
-- Restricting municipality admins to their own data.
-  Every admin query and form post checks the user's
-  assigned municipality on the server, so changing an
-  ID in the browser does not give access to other data.
-- Keeping secrets out of source control while still
-  letting the app seed users. The connection string and
-  seed passwords live in appsettings.Development.json,
-  which is git-ignored.
-- Planning storage for Azure. App Service replaces
-  wwwroot on each deploy, so the database and uploaded
-  images are configured to live under /home instead.
-- Keeping admin groups in sync with municipalities.
-  Identity compares role names without case, so
-  municipality names must be unique regardless of case,
-  and renaming a municipality renames its group so its
-  admins keep access.
+- Tenant isolation in every layer. The public site only
+  requests its own tenant; the API checks the token's
+  tenant on every write and read (403 on a mismatch);
+  the admin portal gets the tenant from the signed-in
+  user, never from the URL; and EF queries filter by
+  tenant in the database.
+- Election privacy. The voting guide service has no
+  access to the HTTP client, and the guide and compare
+  pages load the tenant's whole candidate list and
+  filter in the browser, so no request reveals what a
+  voter picked.
+- The spec conflict between "local storage" and
+  "Session Storage". We used session storage, because
+  local storage would keep ballot data after the
+  browser closes.
+- Running .NET Aspire 9 on .NET 10, and making the
+  Blazor Server admin interactive while the login and
+  error pages stay server-rendered (they need
+  HttpContext).
+- Keeping secrets out of source control. The SQL
+  password and the JWT signing key are Aspire secret
+  parameters, and the JWT key is generated on each run
+  instead of being written in the code.
 
 
 ##TESTING INSTRUCTIONS
 
-1. Install the .NET 10 SDK.
+1. Install the .NET 10 SDK and Docker Desktop. Start
+   Docker.
 
-2. appsettings.Development.json is not in the
-   repository. Create it in the
-   MunicipalElectionsManagementSystem folder with:
+2. From the repository root, run:
 
-   {
-     "ConnectionStrings": {
-       "DefaultConnection": "Data Source=mems.db"
-     },
-     "SeedUsers": {
-       "SuperPassword": "P@$$w0rd",
-       "PmPassword": "P@$$w0rd"
-     }
-   }
+   dotnet run --project src/MEMS.AppHost --launch-profile http
 
-3. Run the application from the
-   MunicipalElectionsManagementSystem folder:
+   No configuration files or secrets are needed. On
+   first start, SQL Server is started in Docker, and
+   the database is created by EF Core migrations and
+   seeded: Burnaby, Surrey, Richmond and Pitt Meadows,
+   12 positions, and 25 candidates.
 
-   dotnet run
+3. Open:
 
-   The database is created, migrated, and seeded on
-   first start. Seed data: Pitt Meadows, Maple Ridge,
-   and Burnaby, 9 positions, and 14 candidates. Admin
-   groups: Super Admin, Pitt Meadows Admin, Maple Ridge
-   Admin, and Burnaby Admin.
+   Aspire dashboard  http://localhost:15000
+                     (use the login link printed in
+                     the console)
+   Public site       http://localhost:5089
+   Admin portal      http://localhost:5002
+   API (Scalar)      http://localhost:5027/scalar/v1
 
-4. Seeded admin users:
+4. Seeded admin users (all passwords: P@$$w0rd):
 
-   Username   Group                Password
-   super      Super Admin          P@$$w0rd
-   pm         Pitt Meadows Admin   P@$$w0rd
+   Username        Role                Tenant
+   Super / super   Super Admin         All
+   Burnabyadmin    Municipality Admin  Burnaby
+   Surreyadmin     Municipality Admin  Surrey
+   Richmondadmin   Municipality Admin  Richmond
+   pm              Municipality Admin  Pitt Meadows
 
 5. Suggested checks:
-   - As a visitor, browse Municipalities and
-     Candidates, search and filter, open a profile,
-     add candidates to My Guide, print the guide, and
-     press "Download PDF".
-   - On Candidates, tick 2 or 3 candidates and press
-     "Compare selected".
-   - Use the navbar toggle to switch dark mode on and
-     off.
-   - Log in as super: manage all municipalities,
-     positions, and candidates, including logo and
-     photo uploads (JPG, PNG, or WebP, 2 MB maximum).
-   - As super, open Dashboard > Manage Administrators,
-     add an admin for Maple Ridge, log in as that user,
-     and confirm only Maple Ridge data can be changed.
-   - Log in as pm: only Pitt Meadows positions and
-     candidates are visible, and municipalities and
-     administrators cannot be managed.
-   - Resize the browser to phone width: admin tables
-     become cards and nothing scrolls sideways.
+   - Public: open /burnaby and /surrey and compare
+     their look. Browse positions and candidates,
+     search by name, filter by position and
+     municipality, and open a profile.
+   - Public: tick 2 or 3 candidates and press "Compare
+     selected".
+   - Voting guide: add candidates and open My Guide.
+     Try to add a second mayor: it is blocked with the
+     reason. Print the guide or save it as a PDF.
+     Close the tab and open the site again: the guide
+     is empty.
+   - Public: try /vancouver (municipality not found),
+     and a Surrey candidate ID under /burnaby/candidates
+     (not found).
+   - Admin as Super: dashboard totals for all tenants.
+     Create a municipality with a slug and an initial
+     administrator, then log in as that administrator.
+   - Admin as Burnabyadmin: only Burnaby positions and
+     candidates are visible. Municipalities and Users
+     show Access Denied. Upload a candidate photo and
+     see it on the public site.
+   - API in Scalar: POST /api/auth/login as
+     Burnabyadmin, then use the token.
+     GET /api/burnaby/candidates returns 200;
+     GET /api/surrey/candidates returns 403;
+     POST /api/surrey/positions returns 403.
+   - Aspire dashboard: resources are healthy, and
+     structured logs, traces and metrics appear for the
+     api and admin.
+   - Resize the browser to phone width: nothing scrolls
+     sideways.
 
-6. To reset the data, stop the app, delete mems.db,
-   and run it again.
+6. If SQL Server login fails on startup, an old SQL
+   data volume from an earlier build is using a
+   different password. Delete the
+   mems.apphost-...-sqlserver-data volume in Docker
+   Desktop and run again.
 
-
-##AZURE DEPLOYMENT URL
-
-https://comp4976-elections-f0hge0avgmeta5f0.canadacentral-01.azurewebsites.net/
-
-Required App Service settings when deployed:
-ConnectionStrings__DefaultConnection = Data Source=/home/data/mems.db
-Uploads__Path = /home/uploads
-SeedUsers__SuperPassword = P@$$w0rd
-SeedUsers__PmPassword = P@$$w0rd
-WEBSITES_ENABLE_APP_SERVICE_STORAGE = true
+7. API tokens last 8 hours. They are signed with a key
+   that is generated each time the AppHost starts, so
+   log in again after a restart.
 
 
 ##GITHUB REPOSITORY
 
-https://github.com/Ibrahimabudalah/comp4976-assignment-1
+https://github.com/Ibrahimabudalah/comp4976-assignment-1/tree/assignment-2

@@ -1,7 +1,8 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
-// JWT Secret Key for API token authentication
-var jwtKey = builder.Configuration["Jwt:Key"] ?? "MEMS_Development_Only_Secure_Random_Key_COMP4976_Assign2_2026!";
+// JWT signing key: a secret parameter, never stored in source. Aspire generates a random key each run
+// unless Parameters:jwt-key is configured, so tokens issued before a restart stop working (log in again).
+var jwtKey = builder.AddParameter("jwt-key", new GenerateParameterDefault { MinLength = 64, Special = false }, secret: true);
 
 // SQL Server instance orchestrated by Aspire with consistent dev password
 var sqlPassword = builder.AddParameter("sql-password", "P@$$w0rd123!", secret: true);

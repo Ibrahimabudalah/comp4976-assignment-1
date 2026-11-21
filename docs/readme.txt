@@ -172,8 +172,13 @@ election-privacy requirements forbid.
 
 ##TESTING INSTRUCTIONS
 
-1. Install the .NET 10 SDK and Docker Desktop. Start
-   Docker.
+1. Install the .NET 10 SDK, the .NET 8 runtime, and
+   Docker Desktop. Start Docker.
+   The .NET 8 runtime is needed by the Aspire 9.0
+   dashboard. Without it the dashboard page stays blank
+   on a machine that only has .NET 10. Installing the
+   .NET 8 SDK (macOS/Windows installer) is the easiest
+   way to get it; it installs next to .NET 10.
 
 2. From the repository root, run:
 

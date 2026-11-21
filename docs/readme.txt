@@ -238,6 +238,27 @@ election-privacy requirements forbid.
    - Aspire dashboard: resources are healthy, and
      structured logs, traces and metrics appear for the
      api and admin.
+   - SQL Server: in the Aspire dashboard, the sqlserver
+     row's Endpoints column shows its port
+     (tcp://localhost:NNNNN; it changes on each run).
+     Connect with any SQL client (for example the
+     "SQL Server (mssql)" extension for VS Code):
+       Server:   localhost,NNNNN
+       Login:    sa
+       Password: P@$$w0rd123!
+       Database: memsdb
+       Trust server certificate: yes
+     Or, with no client installed, run from a terminal:
+       docker exec $(docker ps --format '{{.Names}}' |
+         grep sqlserver) /opt/mssql-tools18/bin/sqlcmd
+         -S localhost -U sa -P 'P@$$w0rd123!' -C -d memsdb
+         -Q "SELECT name FROM sys.tables"
+       (type it as one line)
+     Tables: Municipalities, Positions, Candidates,
+     AspNetUsers, AspNetRoles, AspNetUserRoles and the
+     other Identity tables, and __EFMigrationsHistory.
+     There is no ballot or voting-guide table: voter
+     selections are never stored in the database.
    - Resize the browser to phone width: nothing scrolls
      sideways.
 
@@ -247,7 +268,15 @@ election-privacy requirements forbid.
    mems.apphost-...-sqlserver-data volume in Docker
    Desktop and run again.
 
-7. API tokens last 8 hours. They are signed with a key
+7. If the admin portal or public site shows "An
+   unhandled error has occurred" and a spinner that
+   never finishes, a browser extension is probably
+   changing the page (Grammarly and similar extensions
+   inject elements that break Blazor's page updates).
+   Open the site in a private/incognito window, or
+   turn the extension off for localhost, and reload.
+
+8. API tokens last 8 hours. They are signed with a key
    that is generated each time the AppHost starts, so
    log in again after a restart.
 

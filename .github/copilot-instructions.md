@@ -13,8 +13,8 @@ identified by a URL slug (`/burnaby`, `/surrey`, `/richmond`).
 
 ## Solution Structure
 
-`MEMS.sln` contains the seven projects under `src/`. The `MunicipalElectionsManagementSystem/`
-folder is the old Assignment 1 MVC app: do not change it or copy its patterns.
+`MEMS.sln` contains the seven projects under `src/`. The Assignment 1 MVC app has been removed
+(it is in git history): do not reintroduce MVC controllers, Razor views or SQLite.
 
 | Project | Role |
 |---|---|
